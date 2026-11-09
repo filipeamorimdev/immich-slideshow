@@ -174,6 +174,9 @@ test('waits until the tile scrolls into view', async ({ page }) => {
 test('pauses while the browser tab is hidden', async ({ page }) => {
   await open(page, 'album=lisbon&shuffle=0&interval=3');
   await expectShown(page, 'lisbon-0 preview');
+  // The next photo starts loading as soon as one is shown, while the tab is still visible.
+  // Let it finish, so only what happens after hiding is counted.
+  await page.evaluate(() => Promise.resolve(document.getElementById('card')._nextSlide).then(() => true));
   await page.evaluate(() => {
     Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
     document.dispatchEvent(new Event('visibilitychange'));

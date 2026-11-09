@@ -1,0 +1,249 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Ligar ao Immich",
+        "description": "Crie uma chave de API no Immich em Definições da conta > Chaves de API. Precisa destas permissões: {permissions}. Para as estatísticas, adicione também qualquer uma destas: {statistics}. server.statistics e queue.read só funcionam com a chave de um administrador. As estatísticas que a chave não pode ler ficam de fora.",
+        "data": {
+          "url": "Endereço do servidor",
+          "api_key": "Chave de API",
+          "verify_ssl": "Verificar o certificado SSL"
+        },
+        "data_description": {
+          "url": "O endereço onde abre o Immich, como http://192.168.1.10:2283",
+          "api_key": "A chave fica guardada no Home Assistant e nunca é enviada para o navegador.",
+          "verify_ssl": "Desative apenas para um servidor com certificado autoassinado."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Nova chave de API",
+        "description": "O Immich recusou a chave de API para {url}. Crie uma nova com estas permissões: {permissions}. Para as estatísticas, adicione também qualquer uma destas: {statistics}. server.statistics e queue.read só funcionam com a chave de um administrador. As estatísticas que a chave não pode ler ficam de fora.",
+        "data": {
+          "api_key": "Chave de API"
+        },
+        "data_description": {
+          "api_key": "A chave fica guardada no Home Assistant e nunca é enviada para o navegador."
+        }
+      },
+      "reconfigure": {
+        "title": "Alterar a ligação",
+        "description": "Crie uma chave de API no Immich em Definições da conta > Chaves de API. Precisa destas permissões: {permissions}. Para as estatísticas, adicione também qualquer uma destas: {statistics}. server.statistics e queue.read só funcionam com a chave de um administrador. As estatísticas que a chave não pode ler ficam de fora.",
+        "data": {
+          "url": "Endereço do servidor",
+          "api_key": "Chave de API",
+          "verify_ssl": "Verificar o certificado SSL"
+        },
+        "data_description": {
+          "url": "O endereço onde abre o Immich, como http://192.168.1.10:2283",
+          "api_key": "A chave fica guardada no Home Assistant e nunca é enviada para o navegador.",
+          "verify_ssl": "Desative apenas para um servidor com certificado autoassinado."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Não foi possível contactar o Immich neste endereço.",
+      "invalid_auth": "O Immich recusou esta chave de API.",
+      "missing_permissions": "Faltam estas permissões à chave de API: {missing}.",
+      "invalid_url": "Introduza um endereço que comece por http:// ou https://.",
+      "unknown": "O Immich deu uma resposta inesperada."
+    },
+    "abort": {
+      "already_configured": "Este servidor Immich já está configurado.",
+      "reauth_successful": "A nova chave de API funciona.",
+      "reconfigure_successful": "A ligação foi atualizada."
+    }
+  },
+  "entity": {
+    "image": {
+      "random_photo": {
+        "name": "Foto aleatória",
+        "state_attributes": {
+          "taken": {
+            "name": "Tirada em"
+          },
+          "city": {
+            "name": "Cidade"
+          },
+          "state": {
+            "name": "Região"
+          },
+          "country": {
+            "name": "País"
+          }
+        }
+      },
+      "on_this_day_photo": {
+        "name": "Foto deste dia",
+        "state_attributes": {
+          "taken": {
+            "name": "Tirada em"
+          },
+          "city": {
+            "name": "Cidade"
+          },
+          "state": {
+            "name": "Região"
+          },
+          "country": {
+            "name": "País"
+          }
+        }
+      }
+    },
+    "sensor": {
+      "photos": {
+        "name": "Fotos"
+      },
+      "videos": {
+        "name": "Vídeos"
+      },
+      "items": {
+        "name": "Fotos e vídeos"
+      },
+      "favorites": {
+        "name": "Favoritos"
+      },
+      "archived": {
+        "name": "Arquivados"
+      },
+      "trash": {
+        "name": "No lixo"
+      },
+      "added_recently": {
+        "name": "Adicionados nas últimas 24 horas"
+      },
+      "located": {
+        "name": "Com local"
+      },
+      "unlocated": {
+        "name": "Sem local"
+      },
+      "with_people": {
+        "name": "Com pessoas"
+      },
+      "in_albums": {
+        "name": "Num álbum"
+      },
+      "not_in_albums": {
+        "name": "Sem álbum"
+      },
+      "tagged": {
+        "name": "Com etiquetas"
+      },
+      "rated": {
+        "name": "Classificados"
+      },
+      "motion": {
+        "name": "Fotos em movimento"
+      },
+      "offline": {
+        "name": "Offline"
+      },
+      "albums": {
+        "name": "Álbuns"
+      },
+      "shared_albums": {
+        "name": "Álbuns partilhados"
+      },
+      "memories": {
+        "name": "Memórias"
+      },
+      "on_this_day": {
+        "name": "Neste dia"
+      },
+      "people": {
+        "name": "Pessoas"
+      },
+      "hidden_people": {
+        "name": "Pessoas ocultas"
+      },
+      "tags": {
+        "name": "Etiquetas"
+      },
+      "duplicates": {
+        "name": "Duplicados"
+      },
+      "duplicate_items": {
+        "name": "Fotos e vídeos duplicados"
+      },
+      "stacks": {
+        "name": "Pilhas"
+      },
+      "shared_links": {
+        "name": "Links partilhados"
+      },
+      "countries": {
+        "name": "Países",
+        "state_attributes": {
+          "countries": {
+            "name": "Países"
+          }
+        }
+      },
+      "cities": {
+        "name": "Cidades"
+      },
+      "camera_makes": {
+        "name": "Marcas de câmara",
+        "state_attributes": {
+          "makes": {
+            "name": "Marcas"
+          }
+        }
+      },
+      "camera_models": {
+        "name": "Modelos de câmara"
+      },
+      "lenses": {
+        "name": "Objetivas"
+      },
+      "server_photos": {
+        "name": "Fotos no servidor"
+      },
+      "server_videos": {
+        "name": "Vídeos no servidor"
+      },
+      "server_usage": {
+        "name": "Armazenamento usado"
+      },
+      "server_usage_photos": {
+        "name": "Armazenamento usado por fotos"
+      },
+      "server_usage_videos": {
+        "name": "Armazenamento usado por vídeos"
+      },
+      "users": {
+        "name": "Utilizadores"
+      },
+      "jobs_active": {
+        "name": "Tarefas em curso"
+      },
+      "jobs_waiting": {
+        "name": "Tarefas em espera"
+      },
+      "jobs_failed": {
+        "name": "Tarefas falhadas"
+      },
+      "queues_paused": {
+        "name": "Filas de tarefas em pausa"
+      },
+      "disk_size": {
+        "name": "Tamanho do disco"
+      },
+      "disk_used": {
+        "name": "Disco usado"
+      },
+      "disk_available": {
+        "name": "Disco livre"
+      },
+      "disk_usage": {
+        "name": "Uso do disco"
+      }
+    },
+    "update": {
+      "server": {
+        "name": "Servidor"
+      }
+    }
+  }
+}

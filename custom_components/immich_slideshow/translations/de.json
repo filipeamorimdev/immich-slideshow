@@ -1,0 +1,249 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Mit Immich verbinden",
+        "description": "Erstelle in Immich unter Kontoeinstellungen > API-Schlüssel einen API-Schlüssel. Er braucht diese Berechtigungen: {permissions}. Für die Statistiken auch eine dieser Berechtigungen hinzufügen: {statistics}. server.statistics und queue.read funktionieren nur mit dem Schlüssel eines Administrators. Statistiken, die der Schlüssel nicht lesen darf, werden weggelassen.",
+        "data": {
+          "url": "Serveradresse",
+          "api_key": "API-Schlüssel",
+          "verify_ssl": "SSL-Zertifikat prüfen"
+        },
+        "data_description": {
+          "url": "Die Adresse, unter der du Immich öffnest, z. B. http://192.168.1.10:2283",
+          "api_key": "Der Schlüssel wird in Home Assistant gespeichert und nie an den Browser gesendet.",
+          "verify_ssl": "Nur für einen Server mit selbstsigniertem Zertifikat ausschalten."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Neuer API-Schlüssel",
+        "description": "Immich hat den API-Schlüssel für {url} abgelehnt. Erstelle einen neuen mit diesen Berechtigungen: {permissions}. Für die Statistiken auch eine dieser Berechtigungen hinzufügen: {statistics}. server.statistics und queue.read funktionieren nur mit dem Schlüssel eines Administrators. Statistiken, die der Schlüssel nicht lesen darf, werden weggelassen.",
+        "data": {
+          "api_key": "API-Schlüssel"
+        },
+        "data_description": {
+          "api_key": "Der Schlüssel wird in Home Assistant gespeichert und nie an den Browser gesendet."
+        }
+      },
+      "reconfigure": {
+        "title": "Verbindung ändern",
+        "description": "Erstelle in Immich unter Kontoeinstellungen > API-Schlüssel einen API-Schlüssel. Er braucht diese Berechtigungen: {permissions}. Für die Statistiken auch eine dieser Berechtigungen hinzufügen: {statistics}. server.statistics und queue.read funktionieren nur mit dem Schlüssel eines Administrators. Statistiken, die der Schlüssel nicht lesen darf, werden weggelassen.",
+        "data": {
+          "url": "Serveradresse",
+          "api_key": "API-Schlüssel",
+          "verify_ssl": "SSL-Zertifikat prüfen"
+        },
+        "data_description": {
+          "url": "Die Adresse, unter der du Immich öffnest, z. B. http://192.168.1.10:2283",
+          "api_key": "Der Schlüssel wird in Home Assistant gespeichert und nie an den Browser gesendet.",
+          "verify_ssl": "Nur für einen Server mit selbstsigniertem Zertifikat ausschalten."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Immich ist unter dieser Adresse nicht erreichbar.",
+      "invalid_auth": "Immich hat diesen API-Schlüssel abgelehnt.",
+      "missing_permissions": "Dem API-Schlüssel fehlen diese Berechtigungen: {missing}.",
+      "invalid_url": "Gib eine Adresse ein, die mit http:// oder https:// beginnt.",
+      "unknown": "Immich hat unerwartet geantwortet."
+    },
+    "abort": {
+      "already_configured": "Dieser Immich-Server ist bereits eingerichtet.",
+      "reauth_successful": "Der neue API-Schlüssel funktioniert.",
+      "reconfigure_successful": "Die Verbindung wurde aktualisiert."
+    }
+  },
+  "entity": {
+    "image": {
+      "random_photo": {
+        "name": "Zufälliges Foto",
+        "state_attributes": {
+          "taken": {
+            "name": "Aufgenommen"
+          },
+          "city": {
+            "name": "Stadt"
+          },
+          "state": {
+            "name": "Region"
+          },
+          "country": {
+            "name": "Land"
+          }
+        }
+      },
+      "on_this_day_photo": {
+        "name": "Foto von diesem Tag",
+        "state_attributes": {
+          "taken": {
+            "name": "Aufgenommen"
+          },
+          "city": {
+            "name": "Stadt"
+          },
+          "state": {
+            "name": "Region"
+          },
+          "country": {
+            "name": "Land"
+          }
+        }
+      }
+    },
+    "sensor": {
+      "photos": {
+        "name": "Fotos"
+      },
+      "videos": {
+        "name": "Videos"
+      },
+      "items": {
+        "name": "Fotos und Videos"
+      },
+      "favorites": {
+        "name": "Favoriten"
+      },
+      "archived": {
+        "name": "Archiviert"
+      },
+      "trash": {
+        "name": "Im Papierkorb"
+      },
+      "added_recently": {
+        "name": "In den letzten 24 Stunden hinzugefügt"
+      },
+      "located": {
+        "name": "Mit Ort"
+      },
+      "unlocated": {
+        "name": "Ohne Ort"
+      },
+      "with_people": {
+        "name": "Mit Personen"
+      },
+      "in_albums": {
+        "name": "In einem Album"
+      },
+      "not_in_albums": {
+        "name": "In keinem Album"
+      },
+      "tagged": {
+        "name": "Mit Tags"
+      },
+      "rated": {
+        "name": "Bewertet"
+      },
+      "motion": {
+        "name": "Bewegte Fotos"
+      },
+      "offline": {
+        "name": "Offline"
+      },
+      "albums": {
+        "name": "Alben"
+      },
+      "shared_albums": {
+        "name": "Geteilte Alben"
+      },
+      "memories": {
+        "name": "Erinnerungen"
+      },
+      "on_this_day": {
+        "name": "An diesem Tag"
+      },
+      "people": {
+        "name": "Personen"
+      },
+      "hidden_people": {
+        "name": "Ausgeblendete Personen"
+      },
+      "tags": {
+        "name": "Tags"
+      },
+      "duplicates": {
+        "name": "Duplikate"
+      },
+      "duplicate_items": {
+        "name": "Fotos und Videos in Duplikaten"
+      },
+      "stacks": {
+        "name": "Stapel"
+      },
+      "shared_links": {
+        "name": "Geteilte Links"
+      },
+      "countries": {
+        "name": "Länder",
+        "state_attributes": {
+          "countries": {
+            "name": "Länder"
+          }
+        }
+      },
+      "cities": {
+        "name": "Städte"
+      },
+      "camera_makes": {
+        "name": "Kamerahersteller",
+        "state_attributes": {
+          "makes": {
+            "name": "Hersteller"
+          }
+        }
+      },
+      "camera_models": {
+        "name": "Kameramodelle"
+      },
+      "lenses": {
+        "name": "Objektive"
+      },
+      "server_photos": {
+        "name": "Fotos auf dem Server"
+      },
+      "server_videos": {
+        "name": "Videos auf dem Server"
+      },
+      "server_usage": {
+        "name": "Belegter Speicher"
+      },
+      "server_usage_photos": {
+        "name": "Von Fotos belegter Speicher"
+      },
+      "server_usage_videos": {
+        "name": "Von Videos belegter Speicher"
+      },
+      "users": {
+        "name": "Benutzer"
+      },
+      "jobs_active": {
+        "name": "Laufende Aufgaben"
+      },
+      "jobs_waiting": {
+        "name": "Wartende Aufgaben"
+      },
+      "jobs_failed": {
+        "name": "Fehlgeschlagene Aufgaben"
+      },
+      "queues_paused": {
+        "name": "Pausierte Aufgabenwarteschlangen"
+      },
+      "disk_size": {
+        "name": "Festplattengröße"
+      },
+      "disk_used": {
+        "name": "Belegte Festplatte"
+      },
+      "disk_available": {
+        "name": "Freie Festplatte"
+      },
+      "disk_usage": {
+        "name": "Festplattennutzung"
+      }
+    },
+    "update": {
+      "server": {
+        "name": "Server"
+      }
+    }
+  }
+}

@@ -1,0 +1,249 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to Immich",
+        "description": "Create an API key in Immich under Account settings > API keys. It needs these permissions: {permissions}. For the statistics, also add any of these: {statistics}. server.statistics and queue.read work only with an admin's key. Statistics the key can't read are left out.",
+        "data": {
+          "url": "Server address",
+          "api_key": "API key",
+          "verify_ssl": "Check the SSL certificate"
+        },
+        "data_description": {
+          "url": "The address you open Immich at, such as http://192.168.1.10:2283",
+          "api_key": "The key is stored in Home Assistant and never sent to the browser.",
+          "verify_ssl": "Turn off only for a server with a self-signed certificate."
+        }
+      },
+      "reauth_confirm": {
+        "title": "New API key",
+        "description": "Immich refused the API key for {url}. Create a new one with these permissions: {permissions}. For the statistics, also add any of these: {statistics}. server.statistics and queue.read work only with an admin's key. Statistics the key can't read are left out.",
+        "data": {
+          "api_key": "API key"
+        },
+        "data_description": {
+          "api_key": "The key is stored in Home Assistant and never sent to the browser."
+        }
+      },
+      "reconfigure": {
+        "title": "Change the connection",
+        "description": "Create an API key in Immich under Account settings > API keys. It needs these permissions: {permissions}. For the statistics, also add any of these: {statistics}. server.statistics and queue.read work only with an admin's key. Statistics the key can't read are left out.",
+        "data": {
+          "url": "Server address",
+          "api_key": "API key",
+          "verify_ssl": "Check the SSL certificate"
+        },
+        "data_description": {
+          "url": "The address you open Immich at, such as http://192.168.1.10:2283",
+          "api_key": "The key is stored in Home Assistant and never sent to the browser.",
+          "verify_ssl": "Turn off only for a server with a self-signed certificate."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Couldn't reach Immich at this address.",
+      "invalid_auth": "Immich refused this API key.",
+      "missing_permissions": "The API key is missing these permissions: {missing}.",
+      "invalid_url": "Enter an address starting with http:// or https://.",
+      "unknown": "Immich gave an unexpected answer."
+    },
+    "abort": {
+      "already_configured": "This Immich server is already set up.",
+      "reauth_successful": "The new API key works.",
+      "reconfigure_successful": "The connection was updated."
+    }
+  },
+  "entity": {
+    "image": {
+      "random_photo": {
+        "name": "Random photo",
+        "state_attributes": {
+          "taken": {
+            "name": "Taken"
+          },
+          "city": {
+            "name": "City"
+          },
+          "state": {
+            "name": "State"
+          },
+          "country": {
+            "name": "Country"
+          }
+        }
+      },
+      "on_this_day_photo": {
+        "name": "On this day photo",
+        "state_attributes": {
+          "taken": {
+            "name": "Taken"
+          },
+          "city": {
+            "name": "City"
+          },
+          "state": {
+            "name": "State"
+          },
+          "country": {
+            "name": "Country"
+          }
+        }
+      }
+    },
+    "sensor": {
+      "photos": {
+        "name": "Photos"
+      },
+      "videos": {
+        "name": "Videos"
+      },
+      "items": {
+        "name": "Photos and videos"
+      },
+      "favorites": {
+        "name": "Favorites"
+      },
+      "archived": {
+        "name": "Archived"
+      },
+      "trash": {
+        "name": "In the trash"
+      },
+      "added_recently": {
+        "name": "Added in the last 24 hours"
+      },
+      "located": {
+        "name": "With a place"
+      },
+      "unlocated": {
+        "name": "Without a place"
+      },
+      "with_people": {
+        "name": "With people"
+      },
+      "in_albums": {
+        "name": "In an album"
+      },
+      "not_in_albums": {
+        "name": "Not in an album"
+      },
+      "tagged": {
+        "name": "Tagged"
+      },
+      "rated": {
+        "name": "Rated"
+      },
+      "motion": {
+        "name": "Motion photos"
+      },
+      "offline": {
+        "name": "Offline"
+      },
+      "albums": {
+        "name": "Albums"
+      },
+      "shared_albums": {
+        "name": "Shared albums"
+      },
+      "memories": {
+        "name": "Memories"
+      },
+      "on_this_day": {
+        "name": "On this day"
+      },
+      "people": {
+        "name": "People"
+      },
+      "hidden_people": {
+        "name": "Hidden people"
+      },
+      "tags": {
+        "name": "Tags"
+      },
+      "duplicates": {
+        "name": "Duplicates"
+      },
+      "duplicate_items": {
+        "name": "Photos and videos in duplicates"
+      },
+      "stacks": {
+        "name": "Stacks"
+      },
+      "shared_links": {
+        "name": "Shared links"
+      },
+      "countries": {
+        "name": "Countries",
+        "state_attributes": {
+          "countries": {
+            "name": "Countries"
+          }
+        }
+      },
+      "cities": {
+        "name": "Cities"
+      },
+      "camera_makes": {
+        "name": "Camera makes",
+        "state_attributes": {
+          "makes": {
+            "name": "Makes"
+          }
+        }
+      },
+      "camera_models": {
+        "name": "Camera models"
+      },
+      "lenses": {
+        "name": "Lenses"
+      },
+      "server_photos": {
+        "name": "Photos on the server"
+      },
+      "server_videos": {
+        "name": "Videos on the server"
+      },
+      "server_usage": {
+        "name": "Storage used"
+      },
+      "server_usage_photos": {
+        "name": "Storage used by photos"
+      },
+      "server_usage_videos": {
+        "name": "Storage used by videos"
+      },
+      "users": {
+        "name": "Users"
+      },
+      "jobs_active": {
+        "name": "Jobs running"
+      },
+      "jobs_waiting": {
+        "name": "Jobs waiting"
+      },
+      "jobs_failed": {
+        "name": "Jobs failed"
+      },
+      "queues_paused": {
+        "name": "Paused job queues"
+      },
+      "disk_size": {
+        "name": "Disk size"
+      },
+      "disk_used": {
+        "name": "Disk used"
+      },
+      "disk_available": {
+        "name": "Disk free"
+      },
+      "disk_usage": {
+        "name": "Disk usage"
+      }
+    },
+    "update": {
+      "server": {
+        "name": "Server"
+      }
+    }
+  }
+}

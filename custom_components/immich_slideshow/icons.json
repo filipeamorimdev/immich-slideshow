@@ -1,0 +1,134 @@
+{
+  "entity": {
+    "image": {
+      "random_photo": {
+        "default": "mdi:shuffle-variant"
+      },
+      "on_this_day_photo": {
+        "default": "mdi:calendar-today"
+      }
+    },
+    "sensor": {
+      "photos": {
+        "default": "mdi:image-multiple"
+      },
+      "videos": {
+        "default": "mdi:filmstrip-box-multiple"
+      },
+      "items": {
+        "default": "mdi:multimedia"
+      },
+      "favorites": {
+        "default": "mdi:heart"
+      },
+      "archived": {
+        "default": "mdi:archive"
+      },
+      "trash": {
+        "default": "mdi:delete"
+      },
+      "added_recently": {
+        "default": "mdi:image-plus"
+      },
+      "located": {
+        "default": "mdi:map-marker"
+      },
+      "unlocated": {
+        "default": "mdi:map-marker-off"
+      },
+      "with_people": {
+        "default": "mdi:account-group"
+      },
+      "in_albums": {
+        "default": "mdi:image-album"
+      },
+      "not_in_albums": {
+        "default": "mdi:image-off"
+      },
+      "tagged": {
+        "default": "mdi:tag-multiple"
+      },
+      "rated": {
+        "default": "mdi:star"
+      },
+      "motion": {
+        "default": "mdi:motion-play"
+      },
+      "offline": {
+        "default": "mdi:cloud-off-outline"
+      },
+      "albums": {
+        "default": "mdi:image-album"
+      },
+      "shared_albums": {
+        "default": "mdi:account-multiple"
+      },
+      "memories": {
+        "default": "mdi:history"
+      },
+      "on_this_day": {
+        "default": "mdi:calendar-today"
+      },
+      "people": {
+        "default": "mdi:account-box-multiple"
+      },
+      "hidden_people": {
+        "default": "mdi:account-off"
+      },
+      "tags": {
+        "default": "mdi:tag-multiple"
+      },
+      "duplicates": {
+        "default": "mdi:content-copy"
+      },
+      "duplicate_items": {
+        "default": "mdi:content-copy"
+      },
+      "stacks": {
+        "default": "mdi:layers"
+      },
+      "shared_links": {
+        "default": "mdi:link-variant"
+      },
+      "countries": {
+        "default": "mdi:earth"
+      },
+      "cities": {
+        "default": "mdi:city"
+      },
+      "camera_makes": {
+        "default": "mdi:camera"
+      },
+      "camera_models": {
+        "default": "mdi:camera-outline"
+      },
+      "lenses": {
+        "default": "mdi:camera-iris"
+      },
+      "server_photos": {
+        "default": "mdi:image-multiple"
+      },
+      "server_videos": {
+        "default": "mdi:filmstrip-box-multiple"
+      },
+      "users": {
+        "default": "mdi:account-multiple"
+      },
+      "jobs_active": {
+        "default": "mdi:cog-play"
+      },
+      "jobs_waiting": {
+        "default": "mdi:timer-sand"
+      },
+      "jobs_failed": {
+        "default": "mdi:alert-circle"
+      },
+      "queues_paused": {
+        "default": "mdi:pause-circle"
+      },
+      "disk_usage": {
+        "default": "mdi:harddisk"
+      }
+    }
+  }
+}

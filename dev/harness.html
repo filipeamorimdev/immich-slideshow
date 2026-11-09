@@ -1,0 +1,361 @@
+<!doctype html>
+<!--
+  Development harness: runs a card against a fake `hass` that answers the
+  integration's WebSocket commands with generated images. `ha-card` and `ha-form`
+  here are small stand-ins for Home Assistant's components, so the real form is
+  only exercised on a real Home Assistant.
+  Run `node dev/server.js` and open the address it prints.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Immich slideshow harness</title>
+  <style>
+    :root {
+      --primary-text-color: #1c1c1f; --secondary-text-color: #6a6a70; --disabled-text-color: #a0a0a6;
+      --primary-color: #03a9f4; --divider-color: #dcdce0; --secondary-background-color: #eeeef1;
+      --card-background-color: #fff; --primary-font-family: system-ui, sans-serif;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --primary-text-color: #e6e6ea; --secondary-text-color: #a0a0a8; --disabled-text-color: #6a6a70;
+        --divider-color: #34343a; --secondary-background-color: #2a2a2f; --card-background-color: #1c1c1f;
+      }
+    }
+    body { margin: 0; padding: 16px; background: var(--card-background-color); font-family: var(--primary-font-family); color: var(--primary-text-color); }
+    #wrap { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+    #box.fixed { width: 300px; height: 200px; }
+    #spacer { height: 3000px; }
+    #editor { background: var(--secondary-background-color); border-radius: 12px; padding: 16px; }
+    ha-form { display: flex; flex-direction: column; gap: 12px; }
+    ha-form label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+    ha-form small { color: var(--secondary-text-color); }
+  </style>
+  <script>
+    const params = new URLSearchParams(location.search);
+
+    customElements.define('ha-card', class extends HTMLElement {
+      connectedCallback() {
+        this.style.borderRadius = '12px';
+        this.style.background = 'var(--card-background-color)';
+      }
+    });
+
+    // Stand-in for ha-form, which is only defined once loadCardHelpers() is used.
+    // Like the real one, it keeps its inputs and only updates their values, and
+    // adds or removes fields when the schema changes.
+    class FakeForm extends HTMLElement {
+      set schema(schema) {
+        this._schema = schema;
+        this._render();
+      }
+      set data(data) {
+        this._data = data;
+        this._render();
+      }
+      set hass(_hass) {}
+      _render() {
+        if (!this._schema || !this._data) return;
+        const existing = new Map([...this.children].map((label) => [label.dataset.name, label]));
+        const labels = this._schema.map((field) => existing.get(field.name) || this._field(field));
+        for (const [name, label] of existing) if (!this._schema.some((f) => f.name === name)) label.remove();
+        labels.forEach((label, i) => { if (this.children[i] !== label) this.insertBefore(label, this.children[i] || null); });
+        for (const label of labels) this._fill(label);
+      }
+      _fill(label) {
+        const control = label.querySelector('select, input');
+        const field = this._schema.find((f) => f.name === label.dataset.name);
+        const value = this._data[field.name];
+        if (control.tagName === 'SELECT') {
+          const options = field.selector.select.options;
+          const same = control.options.length === options.length + 1
+            && options.every((o, i) => control.options[i + 1].value === o.value && control.options[i + 1].text === o.label);
+          if (!same) control.replaceChildren(new Option('', ''), ...options.map((o) => new Option(o.label, o.value)));
+        }
+        const helper = label.querySelector('small');
+        const text = this.computeHelper(field);
+        if (helper && text) helper.textContent = text;
+        else if (helper) helper.remove();
+        else if (text) label.append(Object.assign(document.createElement('small'), { textContent: text }));
+        if (control.type === 'checkbox') control.checked = Boolean(value);
+        else if (document.activeElement !== control) control.value = value ?? '';
+      }
+      _field(field) {
+        const label = document.createElement('label');
+        label.dataset.name = field.name;
+        label.append(this.computeLabel(field));
+        const { select, number, boolean } = field.selector;
+        let control;
+        if (select) {
+          control = document.createElement('select');
+        } else {
+          control = document.createElement('input');
+          control.type = number ? 'number' : boolean ? 'checkbox' : 'text';
+        }
+        // Like Home Assistant's text fields, text reports every keystroke.
+        const event = select || boolean || number ? 'change' : 'input';
+        control.addEventListener(event, () => {
+          let next = control.value;
+          if (boolean) next = control.checked;
+          else if (number) next = next === '' ? undefined : Number(next);
+          this.dispatchEvent(new CustomEvent('value-changed', {
+            detail: { value: { ...this._data, [field.name]: next } },
+            bubbles: true,
+            composed: true,
+          }));
+        });
+        label.append(control);
+        return label;
+      }
+    }
+
+    window.loadCardHelpers = async () => {
+      if (params.get('noform')) throw new Error('No form available');
+      return {
+        createCardElement: () => {
+          class FakeButton extends HTMLElement {
+            static async getConfigElement() {
+              window.__formLoads = (window.__formLoads || 0) + 1;
+              if (!customElements.get('ha-form')) customElements.define('ha-form', FakeForm);
+            }
+          }
+          if (!customElements.get('fake-button')) customElements.define('fake-button', FakeButton);
+          return document.createElement('fake-button');
+        },
+      };
+    };
+  </script>
+  <script src="../custom_components/immich_slideshow/frontend/immich-slideshow.js"></script>
+</head>
+<body>
+  <div id="wrap">
+    <div id="spacer" hidden></div>
+    <div id="box"></div>
+    <div id="editor" hidden></div>
+  </div>
+  <script>
+    const SERVER = 'server-1';
+    const DOMAIN = 'immich_slideshow';
+    // Each album lists which photo indexes fail to load.
+    const ALBUMS = [
+      { id: 'lisbon', name: 'Lisbon 2024', count: 12 },
+      { id: 'demo', name: 'Summer', count: 5 },
+      { id: 'pair', name: 'Two photos', count: 2 },
+      { id: 'single', name: 'One photo', count: 1 },
+      { id: 'flaky', name: 'Some broken photos', count: 6, broken: [0, 1, 3] },
+      { id: 'allbroken', name: 'All broken photos', count: 3, broken: [0, 1, 2] },
+      { id: 'empty', name: 'Empty album', count: 0 },
+      { id: 'big', name: 'Everything', count: 10000 },
+      // 16:9, 4:3, 3:4, 3:1 and square.
+      { id: 'shapes', name: 'Different shapes', count: 5, shapes: [[1600, 900], [1440, 1080], [1080, 1440], [2400, 800], [1200, 1200]] },
+      { id: 'denied', name: 'Album that fails', count: 0, fails: true },
+    ];
+    const PLACES = [
+      { city: 'Lisbon', state: 'Lisbon', country: 'Portugal' },
+      { city: 'Puteaux', state: 'Île-de-France', country: 'France' },
+      { city: null, state: 'Algarve', country: 'Portugal' },
+      { city: null, state: null, country: null },
+    ];
+    const calls = { photos: 0, albums: 0, servers: 0, sign: 0, signed: [], types: [], requests: [] };
+    window.__calls = calls;
+
+    const encode = (text) => 'data:image/svg+xml,' + encodeURIComponent(text);
+
+    const svg = (label, id, w, h, size) => encode(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><rect width="100%" height="100%" fill="hsl(${[...id].reduce((a, c) => a * 31 + c.charCodeAt(0), 7) % 360} 45% 45%)"/><text x="50%" y="50%" fill="#fff" font-family="sans-serif" font-size="${size}" text-anchor="middle" dominant-baseline="middle">${label}</text></svg>`);
+
+    // Generated landscapes for the README, so it shows no real photos.
+    const DEMO = [
+      { sky: ['#1b2a57', '#e8785a', '#fbc97a'], sun: '#fff1c9', hills: ['#6d4a6b', '#46305a', '#241b3d'] },
+      { sky: ['#6fb7e0', '#bfe3ee', '#f4efd9'], sun: '#fffbe8', hills: ['#8fb08a', '#5a8a6a', '#2f5d4d'] },
+      { sky: ['#0d1b3a', '#27457e', '#6b86b8'], sun: '#eef1ff', hills: ['#3f5a86', '#2a3f66', '#141f3b'] },
+      { sky: ['#f58f6c', '#f9c07f', '#fbe3a6'], sun: '#fff6d8', hills: ['#c0694f', '#8c4537', '#572a25'] },
+      { sky: ['#3c8aa8', '#8ecdc4', '#e6efc5'], sun: '#fffde8', hills: ['#6b9c8e', '#3f7468', '#1f4a44'] },
+    ];
+    const DEMO_ABOUT = [
+      { taken: '2023-08-14T20:41:00.000Z', city: 'Sagres', country: 'Portugal' },
+      { taken: '2023-08-16T11:02:00.000Z', city: 'Aljezur', country: 'Portugal' },
+      { taken: '2023-08-17T22:15:00.000Z', city: 'Monchique', country: 'Portugal' },
+      { taken: '2023-08-19T19:30:00.000Z', city: 'Lagos', country: 'Portugal' },
+      { taken: '2023-08-21T09:12:00.000Z', city: 'Odeceixe', country: 'Portugal' },
+    ];
+
+    // The third landscape is vertical, to show the blurred background.
+    function demoPhoto(index) {
+      const portrait = index % DEMO.length === 2;
+      const [w, h] = portrait ? [900, 1600] : [1600, 900];
+      const palette = DEMO[index % DEMO.length];
+      let seed = index * 7919 + 13;
+      const random = () => {
+        seed = (seed * 16807) % 2147483647;
+        return seed / 2147483647;
+      };
+      const hill = (fill, base, height) => {
+        const points = [`0,${h}`];
+        const phase = random() * 6;
+        const wave = 1.5 + random() * 2;
+        for (let x = 0; x <= w; x += 20) {
+          const y = base - height * (0.5 + 0.35 * Math.sin(x / w * wave * 6 + phase) + 0.15 * Math.sin(x / w * 23 + phase * 2));
+          points.push(`${x},${y.toFixed(1)}`);
+        }
+        points.push(`${w},${h}`);
+        return `<polygon points="${points.join(' ')}" fill="${fill}"/>`;
+      };
+      const sunX = w * (0.25 + random() * 0.5);
+      const sunY = h * (0.3 + random() * 0.18);
+      return encode(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${palette.sky[0]}"/><stop offset=".6" stop-color="${palette.sky[1]}"/><stop offset="1" stop-color="${palette.sky[2]}"/></linearGradient>
+          <radialGradient id="glow"><stop offset="0" stop-color="${palette.sun}" stop-opacity=".9"/><stop offset="1" stop-color="${palette.sun}" stop-opacity="0"/></radialGradient>
+        </defs>
+        <rect width="${w}" height="${h}" fill="url(#sky)"/>
+        <circle cx="${sunX}" cy="${sunY}" r="${h * 0.42}" fill="url(#glow)"/>
+        <circle cx="${sunX}" cy="${sunY}" r="${h * 0.075}" fill="${palette.sun}"/>
+        ${hill(palette.hills[0], h * 0.86, h * 0.34)}
+        ${hill(palette.hills[1], h * 0.98, h * 0.34)}
+        ${hill(palette.hills[2], h * 1.12, h * 0.36)}
+      </svg>`);
+    }
+
+    const BROKEN = 'data:image/png;base64,AAAA';
+
+    // Photo size for an asset such as "shapes-2", scaled down for thumbnails.
+    function shapeOf(asset, scale) {
+      const [albumId, index] = asset.split('-');
+      const album = ALBUMS.find((a) => a.id === albumId);
+      const [w, h] = album?.shapes?.[Number(index)] || [1440, 1080];
+      return [Math.round(w * scale), Math.round(h * scale)];
+    }
+
+    // A photo as the integration returns it. Every fourth one has no place.
+    function photo(id, i, taken) {
+      const place = PLACES[i % PLACES.length];
+      return { id, taken: taken || `2024-0${(i % 9) + 1}-1${i % 10}T1${i % 10}:00:00.000Z`, ...place };
+    }
+
+    function albumPhotos(album) {
+      const out = [];
+      for (let i = 0; i < album.count; i++) {
+        const id = `${album.id}-${i}${album.broken?.includes(i) ? '-broken' : ''}`;
+        out.push(album.id === 'demo' ? { id, state: null, ...DEMO_ABOUT[i] } : photo(id, i));
+      }
+      return out;
+    }
+
+    let randomDraw = 0;
+    const SIZE = { thumbnail: 0.2, preview: 1, fullsize: 1.33 };
+
+    function fail(code, message) {
+      const error = new Error(message);
+      error.code = code;
+      return error;
+    }
+
+    async function answer(msg) {
+      if (msg.type === `${DOMAIN}/servers`) {
+        calls.servers++;
+        if (params.get('nosource')) return { servers: [] };
+        const one = { id: SERVER, name: 'immich.local' };
+        return { servers: params.get('multi') ? [one, { id: 'server-2', name: 'photos.example.com' }] : [one] };
+      }
+      if (params.get('nosource')) throw fail('not_configured', 'No Immich server is set up in Immich Slideshow');
+      if (msg.type === `${DOMAIN}/albums`) {
+        calls.albums++;
+        if (msg.server === 'server-2') return { server: msg.server, albums: [{ id: 'other', name: 'Other server album', count: 3 }] };
+        return { server: msg.server || SERVER, albums: ALBUMS.map((a) => ({ id: a.id, name: a.name, count: a.count })) };
+      }
+      if (msg.type === `${DOMAIN}/photos`) {
+        calls.photos++;
+        calls.requests.push(msg);
+        const server = msg.server || SERVER;
+        if (msg.source === 'album') {
+          const album = ALBUMS.find((a) => a.id === msg.album);
+          if (!album) throw fail('not_found', 'Not found or no album.read access');
+          if (album.fails) throw fail('unavailable', 'Immich answered 500: Internal server error');
+          return { server, photos: albumPhotos(album) };
+        }
+        if (msg.source === 'random') {
+          randomDraw++;
+          const size = Number(params.get('randomsize') || 4);
+          return { server, photos: Array.from({ length: size }, (_, i) => photo(`random${randomDraw}-${i}`, i)) };
+        }
+        if (msg.source === 'search') {
+          if (msg.query === 'nothing') return { server, photos: [] };
+          const size = Math.min(msg.count, 6);
+          const slug = msg.query.replace(/\W+/g, '');
+          return { server, photos: Array.from({ length: size }, (_, i) => photo(`${slug}-${i}`, i)) };
+        }
+        if (msg.source === 'on_this_day') {
+          const day = window.__day || params.get('day') || '2026-11-08';
+          const refresh = params.get('refreshin') ? Date.now() + Number(params.get('refreshin')) : Date.parse(`${day}T23:59:59Z`) + 1000;
+          if (params.get('nomemories') || window.__noMemories) return { server, date: day, refresh_at: refresh, photos: [] };
+          const [, month, date] = day.split('-');
+          const years = [2025, 2024, 2017];
+          const photos = years.flatMap((year, y) => [0, 1].map((i) => photo(`day${year}${month}${date}-${i}`, y * 2 + i, `${year}-${month}-${date}T1${i}:00:00.000Z`)));
+          return { server, date: day, refresh_at: refresh, photos };
+        }
+        throw fail('invalid_format', 'Unknown source');
+      }
+      if (msg.type === 'auth/sign_path') {
+        calls.sign++;
+        calls.signed.push(msg.path);
+        const [, , , , asset, size] = msg.path.split('/');
+        if (asset.endsWith('-broken')) return { path: BROKEN };
+        if (size === 'preview' && params.get('nopreview')) return { path: BROKEN };
+        if (size === 'thumbnail' && params.get('nothumb')) return { path: BROKEN };
+        if (size === 'thumbnail' && params.get('slowthumb')) {
+          await new Promise((r) => setTimeout(r, Number(params.get('slowthumb'))));
+        }
+        if (asset.startsWith('demo-')) return { path: demoPhoto(Number(asset.split('-')[1])) };
+        const [w, h] = shapeOf(asset, SIZE[size]);
+        return { path: svg(`${asset} ${size}`, asset, w, h, size === 'thumbnail' ? 20 : 72) };
+      }
+      throw fail('unknown_command', `Unknown command ${msg.type}`);
+    }
+
+    const hass = {
+      language: params.get('lang') || 'en',
+      locale: { language: params.get('lang') || 'en' },
+      hassUrl: (p) => p,
+      callWS: async (msg) => {
+        await new Promise((r) => setTimeout(r, 30));
+        if (!calls.types.includes(msg.type)) calls.types.push(msg.type);
+        if (params.get('nointegration') && msg.type.startsWith(DOMAIN)) throw fail('unknown_command', 'Unknown command.');
+        return answer(msg);
+      },
+    };
+    window.__hass = hass;
+
+    if (params.get('box')) document.getElementById('box').className = 'fixed';
+    if (params.get('spacer')) document.getElementById('spacer').hidden = false;
+
+    const kind = params.get('card') || 'slideshow';
+    const TAGS = { slideshow: 'immich-slideshow-card', magic: 'immich-magic-card', on_this_day: 'immich-on-this-day-card' };
+    const card = document.createElement(TAGS[kind]);
+    card.id = 'card';
+    const config = {};
+    if (params.get('album')) config.album = params.get('legacy') ? `media-source://immich/abc|albums|${params.get('album')}` : params.get('album');
+    for (const key of ['source', 'query', 'fit', 'title', 'server']) if (params.get(key)) config[key] = params.get(key);
+    for (const key of ['interval', 'count']) if (params.get(key)) config[key] = Number(params.get(key));
+    for (const key of ['shuffle', 'show_date', 'show_place']) if (params.get(key)) config[key] = params.get(key) !== '0';
+    card.setConfig(config);
+    card.hass = hass;
+    document.getElementById('box').appendChild(card);
+
+    if (params.get('editor')) {
+      const holder = document.getElementById('editor');
+      holder.hidden = false;
+      const editor = document.createElement(`${TAGS[kind]}-editor`);
+      editor.setConfig(config);
+      editor.hass = hass;
+      editor.addEventListener('config-changed', (e) => {
+        window.__lastConfig = e.detail.config;
+        card.setConfig(e.detail.config);
+        editor.setConfig(e.detail.config);
+      });
+      holder.appendChild(editor);
+    }
+  </script>
+</body>
+</html>

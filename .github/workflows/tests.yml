@@ -1,0 +1,49 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  integration:
+    name: Integration on Home Assistant ${{ matrix.homeassistant }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The oldest version hacs.json allows.
+          - homeassistant: "2025.6"
+            python: "3.13"
+            packages: >-
+              pytest-homeassistant-custom-component==0.13.254
+              home-assistant-frontend==20250531.4
+              pycares<5
+          - homeassistant: "2026.10"
+            python: "3.14"
+            packages: >-
+              pytest-homeassistant-custom-component==0.13.375
+              home-assistant-frontend==20260930.5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+      - run: uv venv .venv --python ${{ matrix.python }}
+      - run: uv pip install --python .venv ${{ matrix.packages }}
+      - run: .venv/bin/python -m pytest -q
+
+  cards:
+    name: Cards in Chromium and WebKit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium webkit
+      - run: npm test

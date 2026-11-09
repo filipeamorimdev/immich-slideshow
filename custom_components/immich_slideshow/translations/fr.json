@@ -1,0 +1,249 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Se connecter à Immich",
+        "description": "Créez une clé d'API dans Immich sous Paramètres du compte > Clés d'API. Elle a besoin de ces autorisations : {permissions}. Pour les statistiques, ajoutez aussi n'importe laquelle de celles-ci : {statistics}. server.statistics et queue.read ne fonctionnent qu'avec la clé d'un administrateur. Les statistiques que la clé ne peut pas lire sont omises.",
+        "data": {
+          "url": "Adresse du serveur",
+          "api_key": "Clé d'API",
+          "verify_ssl": "Vérifier le certificat SSL"
+        },
+        "data_description": {
+          "url": "L'adresse à laquelle vous ouvrez Immich, par exemple http://192.168.1.10:2283",
+          "api_key": "La clé est enregistrée dans Home Assistant et n'est jamais envoyée au navigateur.",
+          "verify_ssl": "Désactivez seulement pour un serveur avec un certificat auto-signé."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Nouvelle clé d'API",
+        "description": "Immich a refusé la clé d'API pour {url}. Créez-en une nouvelle avec ces autorisations : {permissions}. Pour les statistiques, ajoutez aussi n'importe laquelle de celles-ci : {statistics}. server.statistics et queue.read ne fonctionnent qu'avec la clé d'un administrateur. Les statistiques que la clé ne peut pas lire sont omises.",
+        "data": {
+          "api_key": "Clé d'API"
+        },
+        "data_description": {
+          "api_key": "La clé est enregistrée dans Home Assistant et n'est jamais envoyée au navigateur."
+        }
+      },
+      "reconfigure": {
+        "title": "Modifier la connexion",
+        "description": "Créez une clé d'API dans Immich sous Paramètres du compte > Clés d'API. Elle a besoin de ces autorisations : {permissions}. Pour les statistiques, ajoutez aussi n'importe laquelle de celles-ci : {statistics}. server.statistics et queue.read ne fonctionnent qu'avec la clé d'un administrateur. Les statistiques que la clé ne peut pas lire sont omises.",
+        "data": {
+          "url": "Adresse du serveur",
+          "api_key": "Clé d'API",
+          "verify_ssl": "Vérifier le certificat SSL"
+        },
+        "data_description": {
+          "url": "L'adresse à laquelle vous ouvrez Immich, par exemple http://192.168.1.10:2283",
+          "api_key": "La clé est enregistrée dans Home Assistant et n'est jamais envoyée au navigateur.",
+          "verify_ssl": "Désactivez seulement pour un serveur avec un certificat auto-signé."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Impossible de joindre Immich à cette adresse.",
+      "invalid_auth": "Immich a refusé cette clé d'API.",
+      "missing_permissions": "Il manque ces autorisations à la clé d'API : {missing}.",
+      "invalid_url": "Saisissez une adresse commençant par http:// ou https://.",
+      "unknown": "Immich a donné une réponse inattendue."
+    },
+    "abort": {
+      "already_configured": "Ce serveur Immich est déjà configuré.",
+      "reauth_successful": "La nouvelle clé d'API fonctionne.",
+      "reconfigure_successful": "La connexion a été mise à jour."
+    }
+  },
+  "entity": {
+    "image": {
+      "random_photo": {
+        "name": "Photo au hasard",
+        "state_attributes": {
+          "taken": {
+            "name": "Prise le"
+          },
+          "city": {
+            "name": "Ville"
+          },
+          "state": {
+            "name": "Région"
+          },
+          "country": {
+            "name": "Pays"
+          }
+        }
+      },
+      "on_this_day_photo": {
+        "name": "Photo de ce jour-là",
+        "state_attributes": {
+          "taken": {
+            "name": "Prise le"
+          },
+          "city": {
+            "name": "Ville"
+          },
+          "state": {
+            "name": "Région"
+          },
+          "country": {
+            "name": "Pays"
+          }
+        }
+      }
+    },
+    "sensor": {
+      "photos": {
+        "name": "Photos"
+      },
+      "videos": {
+        "name": "Vidéos"
+      },
+      "items": {
+        "name": "Photos et vidéos"
+      },
+      "favorites": {
+        "name": "Favoris"
+      },
+      "archived": {
+        "name": "Archivés"
+      },
+      "trash": {
+        "name": "Dans la corbeille"
+      },
+      "added_recently": {
+        "name": "Ajoutés ces dernières 24 heures"
+      },
+      "located": {
+        "name": "Avec un lieu"
+      },
+      "unlocated": {
+        "name": "Sans lieu"
+      },
+      "with_people": {
+        "name": "Avec des personnes"
+      },
+      "in_albums": {
+        "name": "Dans un album"
+      },
+      "not_in_albums": {
+        "name": "Hors album"
+      },
+      "tagged": {
+        "name": "Avec des tags"
+      },
+      "rated": {
+        "name": "Notés"
+      },
+      "motion": {
+        "name": "Photos animées"
+      },
+      "offline": {
+        "name": "Hors ligne"
+      },
+      "albums": {
+        "name": "Albums"
+      },
+      "shared_albums": {
+        "name": "Albums partagés"
+      },
+      "memories": {
+        "name": "Souvenirs"
+      },
+      "on_this_day": {
+        "name": "Ce jour-là"
+      },
+      "people": {
+        "name": "Personnes"
+      },
+      "hidden_people": {
+        "name": "Personnes masquées"
+      },
+      "tags": {
+        "name": "Tags"
+      },
+      "duplicates": {
+        "name": "Doublons"
+      },
+      "duplicate_items": {
+        "name": "Photos et vidéos en double"
+      },
+      "stacks": {
+        "name": "Piles"
+      },
+      "shared_links": {
+        "name": "Liens partagés"
+      },
+      "countries": {
+        "name": "Pays",
+        "state_attributes": {
+          "countries": {
+            "name": "Pays"
+          }
+        }
+      },
+      "cities": {
+        "name": "Villes"
+      },
+      "camera_makes": {
+        "name": "Marques d'appareil",
+        "state_attributes": {
+          "makes": {
+            "name": "Marques"
+          }
+        }
+      },
+      "camera_models": {
+        "name": "Modèles d'appareil"
+      },
+      "lenses": {
+        "name": "Objectifs"
+      },
+      "server_photos": {
+        "name": "Photos sur le serveur"
+      },
+      "server_videos": {
+        "name": "Vidéos sur le serveur"
+      },
+      "server_usage": {
+        "name": "Stockage utilisé"
+      },
+      "server_usage_photos": {
+        "name": "Stockage utilisé par les photos"
+      },
+      "server_usage_videos": {
+        "name": "Stockage utilisé par les vidéos"
+      },
+      "users": {
+        "name": "Utilisateurs"
+      },
+      "jobs_active": {
+        "name": "Tâches en cours"
+      },
+      "jobs_waiting": {
+        "name": "Tâches en attente"
+      },
+      "jobs_failed": {
+        "name": "Tâches en échec"
+      },
+      "queues_paused": {
+        "name": "Files de tâches en pause"
+      },
+      "disk_size": {
+        "name": "Taille du disque"
+      },
+      "disk_used": {
+        "name": "Disque utilisé"
+      },
+      "disk_available": {
+        "name": "Disque libre"
+      },
+      "disk_usage": {
+        "name": "Utilisation du disque"
+      }
+    },
+    "update": {
+      "server": {
+        "name": "Serveur"
+      }
+    }
+  }
+}

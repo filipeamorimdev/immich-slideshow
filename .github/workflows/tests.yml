@@ -20,14 +20,14 @@ jobs:
           - homeassistant: "2025.6"
             python: "3.13"
             packages: >-
-              pytest-homeassistant-custom-component==0.13.254
-              home-assistant-frontend==20250531.4
-              pycares<5
+              "pytest-homeassistant-custom-component==0.13.254"
+              "home-assistant-frontend==20250531.4"
+              "pycares<5"
           - homeassistant: "2026.10"
             python: "3.14"
             packages: >-
-              pytest-homeassistant-custom-component==0.13.375
-              home-assistant-frontend==20260930.5
+              "pytest-homeassistant-custom-component==0.13.375"
+              "home-assistant-frontend==20260930.5"
     steps:
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@v6

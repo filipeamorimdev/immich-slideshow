@@ -4,9 +4,13 @@ const { expect } = require('@playwright/test');
 const CARD = '#card';
 const VIEWER = 'immich-slideshow-viewer';
 
+// The harness's default On This Day date is 2026-11-08, and the cards count years
+// from now, so every test starts on that day rather than on the real one.
+const NOW = new Date('2026-11-08T12:00:00Z');
+
 // Opens the harness with a controllable clock, so tests don't wait for real intervals.
 async function open(page, query = '') {
-  await page.clock.install();
+  await page.clock.install({ time: NOW });
   await page.goto(`/dev/harness.html?${query}`);
 }
 

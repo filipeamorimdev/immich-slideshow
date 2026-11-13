@@ -34,7 +34,8 @@ class ImmichUpdate(CoordinatorEntity[ImmichStatsCoordinator], UpdateEntity):
     _attr_title = "Immich"
 
     def __init__(self, coordinator: ImmichStatsCoordinator) -> None:
-        super().__init__(coordinator)
+        # The installed version is always read. This asks for the release check too.
+        super().__init__(coordinator, context=("version_check", "latest"))
         entry = coordinator.config_entry
         self._attr_unique_id = f"{entry.entry_id}_update"
         self._attr_device_info = device_info(entry)

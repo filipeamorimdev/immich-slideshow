@@ -64,6 +64,7 @@ async def test_accepts_a_key_with_exactly_the_needed_permissions(hass: HomeAssis
         (lambda immich: immich.errors.update({"/api-keys": ClientConnectionError()}), "cannot_connect"),
         (lambda immich: immich.errors.update({"/api-keys": TimeoutError()}), "cannot_connect"),
         (lambda immich: immich.status.update({"/api-keys": 500}), "unknown"),
+        (lambda immich: immich.status.update({"/api-keys": 302}), "redirected"),
     ],
 )
 async def test_reports_errors_and_recovers(hass: HomeAssistant, immich: FakeImmich, setup, error: str) -> None:

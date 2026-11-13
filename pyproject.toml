@@ -1,6 +1,6 @@
 [project]
 name = "immich-slideshow"
-version = "0.6.0"
+version = "0.6.0.2"
 description = "Home Assistant integration with Immich slideshow cards"
 requires-python = ">=3.13"
 

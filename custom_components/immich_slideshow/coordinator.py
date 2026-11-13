@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Collection
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 import logging
@@ -21,6 +21,8 @@ from .api import (
     ImmichError,
     ImmichForbiddenError,
     ImmichNotFoundError,
+    ImmichRedirectError,
+    ImmichTimeoutError,
 )
 from .const import DOMAIN, SLOW_STATS_INTERVAL, STATS_INTERVAL
 
@@ -33,7 +35,15 @@ LIBRARY: dict[str, Any] = {
     "trashedAt": {"eq": None},
 }
 
-type Fetch = Callable[[ImmichClient, date], Awaitable[dict[str, Any]]]
+# The server's version is shown on the device, whichever entities are turned on.
+ALWAYS_READ = ("about",)
+# A slow answer leaves out its own statistics. After this many in one update,
+# Immich is taken to be down.
+MAX_SLOW_ANSWERS = 2
+
+# Called with the client and the day. A selective group is also given the values
+# to read, or None for all of them.
+type Fetch = Callable[..., Awaitable[dict[str, Any]]]
 
 
 @dataclass(frozen=True)
@@ -42,6 +52,8 @@ class Group:
 
     fetch: Fetch
     slow: bool = False
+    # Each value is a request of its own, so only those an entity shows are read.
+    selective: bool = False
 
 
 def _distinct(values: list[str]) -> list[str]:
@@ -113,7 +125,9 @@ async def _assets(client: ImmichClient, day: date) -> dict[str, Any]:
     }
 
 
-async def _counts(client: ImmichClient, day: date) -> dict[str, Any]:
+async def _counts(
+    client: ImmichClient, day: date, wanted: Collection[str] | None = None
+) -> dict[str, Any]:
     since = (dt_util.utcnow() - timedelta(days=1)).isoformat()
     rules: dict[str, dict[str, Any]] = {
         "located": {"country": {"ne": None}},
@@ -127,7 +141,11 @@ async def _counts(client: ImmichClient, day: date) -> dict[str, Any]:
         "offline": {"isOffline": {"eq": True}},
         "added_recently": {"createdAt": {"gte": since}},
     }
-    return {name: await client.async_count({**LIBRARY, **rule}) for name, rule in rules.items()}
+    return {
+        name: await client.async_count({**LIBRARY, **rule})
+        for name, rule in rules.items()
+        if wanted is None or name in wanted
+    }
 
 
 async def _albums(client: ImmichClient, day: date) -> dict[str, Any]:
@@ -172,21 +190,31 @@ async def _shared_links(client: ImmichClient, day: date) -> dict[str, Any]:
     return {"total": len(await client.async_get("/shared-links"))}
 
 
-async def _places_and_cameras(client: ImmichClient, day: date) -> dict[str, Any]:
-    async def suggestions(kind: str) -> list[str]:
-        return _distinct(await client.async_get("/search/suggestions", {"type": kind}))
+# What each count of places and cameras asks Immich's search suggestions for.
+SUGGESTIONS = {
+    "countries": "country",
+    "cities": "city",
+    "camera_makes": "camera-make",
+    "camera_models": "camera-model",
+    "lenses": "camera-lens-model",
+}
 
-    countries = await suggestions("country")
-    makes = await suggestions("camera-make")
-    return {
-        "countries": len(countries),
-        "country_list": countries,
-        "cities": len(await suggestions("city")),
-        "camera_makes": len(makes),
-        "camera_make_list": makes,
-        "camera_models": len(await suggestions("camera-model")),
-        "lenses": len(await suggestions("camera-lens-model")),
+
+async def _places_and_cameras(
+    client: ImmichClient, day: date, wanted: Collection[str] | None = None
+) -> dict[str, Any]:
+    found = {
+        value: _distinct(await client.async_get("/search/suggestions", {"type": kind}))
+        for value, kind in SUGGESTIONS.items()
+        if wanted is None or value in wanted
     }
+    stats: dict[str, Any] = {value: len(names) for value, names in found.items()}
+    # The sensors for these two list the names in an attribute.
+    if "countries" in found:
+        stats["country_list"] = found["countries"]
+    if "camera_makes" in found:
+        stats["camera_make_list"] = found["camera_makes"]
+    return stats
 
 
 async def _duplicates(client: ImmichClient, day: date) -> dict[str, Any]:
@@ -205,7 +233,7 @@ GROUPS: dict[str, Group] = {
     "version_check": Group(_version_check),
     "queues": Group(_queues),
     "assets": Group(_assets),
-    "counts": Group(_counts),
+    "counts": Group(_counts, selective=True),
     "albums": Group(_albums),
     "memories": Group(_memories),
     "on_this_day": Group(_on_this_day),
@@ -213,7 +241,7 @@ GROUPS: dict[str, Group] = {
     "tags": Group(_tags),
     "users": Group(_users),
     "shared_links": Group(_shared_links),
-    "metadata": Group(_places_and_cameras),
+    "metadata": Group(_places_and_cameras, selective=True),
     "duplicates": Group(_duplicates, slow=True),
     "stacks": Group(_stacks, slow=True),
 }
@@ -238,27 +266,60 @@ class ImmichStatsCoordinator(DataUpdateCoordinator[ImmichStats]):
         # Groups the key may not read, or this Immich version doesn't have.
         self.unsupported: set[str] = set()
         self._read_at: dict[str, datetime] = {}
+        self._read_everything = False
 
     def supports(self, group: str) -> bool:
         """Whether entities for this group can have a value."""
         return group not in self.unsupported
+
+    def _wanted(self) -> dict[str, set[str]] | None:
+        """The values the entities that are turned on show, by group.
+
+        None for the first read, which reads everything: what the key can't read
+        decides which entities there are.
+        """
+        if not self._read_everything:
+            return None
+        wanted: dict[str, set[str]] = {name: set() for name in ALWAYS_READ}
+        for group, value in self.async_contexts():
+            wanted.setdefault(group, set()).add(value)
+        return wanted
 
     async def _async_update_data(self) -> ImmichStats:
         previous = self.data or {}
         data: ImmichStats = {}
         now = dt_util.utcnow()
         today = dt_util.now().date()
+        wanted = self._wanted()
+        answered = False
+        slow_answers = 0
         for name, group in GROUPS.items():
             if name in self.unsupported:
                 continue
+            if wanted is not None and name not in wanted:
+                continue
             read_at = self._read_at.get(name)
-            if group.slow and name in previous and read_at and now - read_at < SLOW_STATS_INTERVAL:
-                data[name] = previous[name]
+            if group.slow and read_at and now - read_at < SLOW_STATS_INTERVAL:
+                if name in previous:
+                    data[name] = previous[name]
                 continue
             try:
-                data[name] = await group.fetch(self.client, today)
-            except ImmichConnectionError as err:
-                raise UpdateFailed(str(err)) from err
+                if group.selective:
+                    values = None if wanted is None else wanted[name]
+                    data[name] = await group.fetch(self.client, today, values)
+                else:
+                    data[name] = await group.fetch(self.client, today)
+            except (ImmichConnectionError, ImmichRedirectError) as err:
+                # Immich answered earlier in this update, so it's up and this one
+                # answer is slow. Whole lists can be, on a large library.
+                slow = isinstance(err, ImmichTimeoutError) and answered
+                if not slow or slow_answers == MAX_SLOW_ANSWERS:
+                    raise UpdateFailed(str(err)) from err
+                slow_answers += 1
+                _LOGGER.warning("Immich took too long to answer for the %s statistics", name)
+                # A slow list waits as long as one that was read before it's asked for again.
+                self._read_at[name] = now
+                continue
             except (ImmichForbiddenError, ImmichNotFoundError) as err:
                 # A key without this permission, or an Immich without this endpoint.
                 self.unsupported.add(name)
@@ -269,5 +330,7 @@ class ImmichStatsCoordinator(DataUpdateCoordinator[ImmichStats]):
             except (ImmichError, KeyError, TypeError, ValueError) as err:
                 _LOGGER.warning("Couldn't read the %s statistics from Immich: %s", name, err)
                 continue
+            answered = True
             self._read_at[name] = now
+        self._read_everything = True
         return data

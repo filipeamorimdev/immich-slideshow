@@ -45,6 +45,7 @@
       "invalid_auth": "Immich refused this API key.",
       "missing_permissions": "The API key is missing these permissions: {missing}.",
       "invalid_url": "Enter an address starting with http:// or https://.",
+      "redirected": "This address redirects to another one. Enter the one Immich itself answers at, for example with https:// instead of http://.",
       "unknown": "Immich gave an unexpected answer."
     },
     "abort": {

@@ -34,6 +34,38 @@ test.describe('date and place', () => {
     await expect(page.locator(`${CARD} .caption`)).toBeHidden();
   });
 
+  test('can be made of other parts, in the order the card gives', async ({ page }) => {
+    await open(page, 'album=lisbon&shuffle=0&interval=3&description=year,city,country');
+    await expect(meta(page)).toHaveText('2024 · Lisbon · Portugal');
+    // No city: the part is left out, and so is one the card doesn't know.
+    await open(page, 'album=lisbon&shuffle=0&description=city,camera,place');
+    await expectShown(page, 'lisbon-0 preview');
+    for (const label of ['lisbon-1 preview', 'lisbon-2 preview']) {
+      await advance(page, 10100);
+      await expectShown(page, label);
+    }
+    await expect(meta(page)).toHaveText('Algarve, Portugal');
+    await open(page, 'album=lisbon&shuffle=0&description=');
+    await expectShown(page, 'lisbon-0 preview');
+    await expect(page.locator(`${CARD} .caption`)).toBeHidden();
+  });
+
+  test('names the people in each photo, only when the card asks', async ({ page }) => {
+    await open(page, 'album=lisbon&shuffle=0&interval=3');
+    await expectShown(page, 'lisbon-0 preview');
+    expect((await calls(page)).requests[0].people).toBeUndefined();
+    await open(page, 'album=lisbon&shuffle=0&interval=3&description=people,year');
+    await expect(meta(page)).toHaveText('Ana · 2024');
+    expect((await calls(page)).requests[0].people).toBe(true);
+    await advance(page, 3100);
+    await expect(meta(page)).toHaveText('Ana and Rui · 2024');
+    await advance(page, 3100);
+    // Nobody in this one.
+    await expect(meta(page)).toHaveText('2024');
+    await advance(page, 3100);
+    await expect(meta(page)).toHaveText('Ana, Rui, and Maria · 2024');
+  });
+
   test('sits under the caption', async ({ page }) => {
     await open(page, 'album=lisbon&shuffle=0&title=Summer');
     await expect(meta(page)).toHaveText('January 10, 2024 · Lisbon, Portugal');

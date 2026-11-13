@@ -15,7 +15,13 @@ from homeassistant.helpers.selector import (
     TextSelectorType,
 )
 
-from .api import ImmichAuthError, ImmichClient, ImmichConnectionError, ImmichError
+from .api import (
+    ImmichAuthError,
+    ImmichClient,
+    ImmichConnectionError,
+    ImmichError,
+    ImmichRedirectError,
+)
 from .const import DOMAIN, REQUIRED_PERMISSIONS, STATISTICS_PERMISSIONS
 
 try:
@@ -62,6 +68,9 @@ class ImmichSlideshowConfigFlow(ConfigFlow, domain=DOMAIN):
             return {"base": "invalid_auth"}
         except ImmichConnectionError:
             return {"base": "cannot_connect"}
+        except ImmichRedirectError:
+            # Often http:// in front of a server that only answers on https://.
+            return {"base": "redirected"}
         except ImmichError:
             return {"base": "unknown"}
         if missing:

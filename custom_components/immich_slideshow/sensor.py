@@ -158,7 +158,8 @@ class ImmichSensor(CoordinatorEntity[ImmichStatsCoordinator], SensorEntity):
     _unrecorded_attributes = frozenset({"countries", "makes"})
 
     def __init__(self, coordinator: ImmichStatsCoordinator, description: ImmichSensorDescription) -> None:
-        super().__init__(coordinator)
+        # Tells the coordinator which statistic this sensor shows, so it reads it.
+        super().__init__(coordinator, context=(description.group, description.value))
         self.entity_description = description
         entry = coordinator.config_entry
         self._attr_unique_id = f"{entry.entry_id}_{description.key}"

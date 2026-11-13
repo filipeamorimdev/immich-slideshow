@@ -126,6 +126,25 @@ test('stays on the only photo of a one-photo album', async ({ page }) => {
   expect((await calls(page)).sign).toBe(before);
 });
 
+test("uses a photo's link again while it lasts", async ({ page }) => {
+  const signed = async (asset) => (await calls(page)).signed.filter((path) => path.endsWith(`/${asset}/preview`)).length;
+  await open(page, 'album=pair&shuffle=0&interval=3');
+  await expectShown(page, 'pair-0 preview');
+  // Three rounds of the album's two photos.
+  for (const label of ['pair-1', 'pair-0', 'pair-1', 'pair-0', 'pair-1']) {
+    await advance(page, 3100);
+    await expectShown(page, `${label} preview`);
+  }
+  expect(await signed('pair-0')).toBe(1);
+  expect(await signed('pair-1')).toBe(1);
+  // A link lasts five minutes, so a photo gets a new one before then.
+  await advance(page, 4 * 60 * 1000);
+  await advance(page, 3100);
+  await expect.poll(() => signed('pair-0')).toBe(2);
+  await advance(page, 3100);
+  await expect.poll(() => signed('pair-1')).toBe(2);
+});
+
 test('says the album has no photos, and looks again an hour later', async ({ page }) => {
   await open(page, 'album=empty');
   await expect(message(page)).toHaveText('This album has no photos');
@@ -137,7 +156,7 @@ test('says the album has no photos, and looks again an hour later', async ({ pag
 test('shows the error and recovers from a failed load', async ({ page }) => {
   await open(page, 'album=denied');
   await expect(message(page)).toContainText("Couldn't get the photos from Immich");
-  await expect(message(page)).toContainText('Immich answered 500: Internal server error');
+  await expect(message(page)).toContainText("Immich gave an unexpected answer. Home Assistant's log has the details.");
   const before = (await calls(page)).photos;
   await page.locator(`${CARD} .action`).click();
   await expect.poll(async () => (await calls(page)).photos).toBe(before + 1);
@@ -154,6 +173,12 @@ test('retries a failed load on its own', async ({ page }) => {
 test('asks for the integration when it is missing', async ({ page }) => {
   await open(page, 'album=lisbon&nointegration=1');
   await expect(message(page)).toContainText('Set up the Immich Slideshow integration first.');
+  await expect(page.locator(`${CARD} .message .detail`)).toHaveCount(0);
+});
+
+test('tells a user who is not an admin why there are no photos', async ({ page }) => {
+  await open(page, 'album=lisbon&notadmin=1');
+  await expect(message(page)).toContainText('Only Home Assistant admins can see these photos.');
   await expect(page.locator(`${CARD} .message .detail`)).toHaveCount(0);
 });
 

@@ -9,20 +9,38 @@ const TYPES = {
   '.js': 'text/javascript; charset=utf-8',
   '.png': 'image/png',
   '.gif': 'image/gif',
+  '.webm': 'video/webm',
 };
 
 function serve(port = 8766) {
   const server = createServer((request, response) => {
     const { pathname } = new URL(request.url, 'http://localhost');
     const path = normalize(join(ROOT, decodeURIComponent(pathname)));
+    let size;
     try {
-      if (!path.startsWith(ROOT + sep) || !statSync(path).isFile()) throw new Error('Not a file');
+      const file = statSync(path);
+      if (!path.startsWith(ROOT + sep) || !file.isFile()) throw new Error('Not a file');
+      size = file.size;
     } catch (_err) {
       response.writeHead(404).end('Not found');
       return;
     }
-    response.writeHead(200, { 'Content-Type': TYPES[extname(path)] || 'application/octet-stream' });
-    createReadStream(path).pipe(response);
+    const headers = { 'Content-Type': TYPES[extname(path)] || 'application/octet-stream', 'Accept-Ranges': 'bytes' };
+    // Safari only plays a video it can ask for in parts.
+    const range = /^bytes=(\d+)-(\d*)$/.exec(request.headers.range || '');
+    if (!range) {
+      response.writeHead(200, { ...headers, 'Content-Length': size });
+      createReadStream(path).pipe(response);
+      return;
+    }
+    const start = Number(range[1]);
+    const end = Math.min(range[2] ? Number(range[2]) : size - 1, size - 1);
+    if (start > end) {
+      response.writeHead(416, { 'Content-Range': `bytes */${size}` }).end();
+      return;
+    }
+    response.writeHead(206, { ...headers, 'Content-Range': `bytes ${start}-${end}/${size}`, 'Content-Length': end - start + 1 });
+    createReadStream(path, { start, end }).pipe(response);
   });
   return new Promise((resolve) => {
     server.listen(port, '127.0.0.1', () => resolve(server));

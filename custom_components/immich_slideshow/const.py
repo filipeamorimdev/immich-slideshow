@@ -7,7 +7,7 @@ from datetime import timedelta
 DOMAIN = "immich_slideshow"
 
 # Keep in step with manifest.json and IS_VERSION in frontend/immich-slideshow.js.
-VERSION = "0.6.0"
+VERSION = "0.6.0.2"
 
 FRONTEND_PATH = f"/{DOMAIN}"
 CARD_URL = f"{FRONTEND_PATH}/immich-slideshow.js"
@@ -16,6 +16,8 @@ CARD_URL = f"{FRONTEND_PATH}/immich-slideshow.js"
 LEGACY_CARD_FILE = "immich-slideshow-card.js"
 
 IMAGE_SIZES = ("thumbnail", "preview", "fullsize")
+# Asked for in place of an image size, for the video itself.
+VIDEO = "video"
 
 # Everything the cards read. The integration never writes to Immich.
 REQUIRED_PERMISSIONS = ("album.read", "asset.read", "asset.view", "memory.read")

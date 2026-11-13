@@ -41,6 +41,22 @@ test('the slideshow pauses while it is open and resumes after', async ({ page })
   expect((await calls(page)).sign).toBeGreaterThan(before);
 });
 
+test('shows the photo it loaded ahead, without asking for it again', async ({ page }) => {
+  const signed = async (asset) => (await calls(page)).signed.filter((path) => path.endsWith(`/${asset}/fullsize`)).length;
+  await openViewer(page);
+  // The photos on either side load ahead.
+  await expect.poll(() => signed('lisbon-2')).toBe(1);
+  await expect.poll(() => signed('lisbon-0')).toBe(1);
+  await page.keyboard.press('ArrowRight');
+  await expect(position(page)).toHaveText('3 of 12');
+  await expect(page.locator(`${VIEWER} img.full.ready`)).toBeVisible();
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.press('ArrowLeft');
+  await expect(position(page)).toHaveText('1 of 12');
+  await expect(page.locator(`${VIEWER} img.full.ready`)).toBeVisible();
+  for (const asset of ['lisbon-0', 'lisbon-1', 'lisbon-2']) expect(await signed(asset)).toBe(1);
+});
+
 test('arrow keys move between photos and stop at the ends', async ({ page }) => {
   await openViewer(page);
   await page.keyboard.press('ArrowRight');

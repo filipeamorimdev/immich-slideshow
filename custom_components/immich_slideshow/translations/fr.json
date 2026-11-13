@@ -45,6 +45,7 @@
       "invalid_auth": "Immich a refusé cette clé d'API.",
       "missing_permissions": "Il manque ces autorisations à la clé d'API : {missing}.",
       "invalid_url": "Saisissez une adresse commençant par http:// ou https://.",
+      "redirected": "Cette adresse redirige vers une autre. Saisissez celle à laquelle Immich répond lui-même, par exemple avec https:// au lieu de http://.",
       "unknown": "Immich a donné une réponse inattendue."
     },
     "abort": {

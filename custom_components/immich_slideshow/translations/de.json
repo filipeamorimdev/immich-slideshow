@@ -45,6 +45,7 @@
       "invalid_auth": "Immich hat diesen API-Schlüssel abgelehnt.",
       "missing_permissions": "Dem API-Schlüssel fehlen diese Berechtigungen: {missing}.",
       "invalid_url": "Gib eine Adresse ein, die mit http:// oder https:// beginnt.",
+      "redirected": "Diese Adresse leitet auf eine andere weiter. Gib die Adresse ein, unter der Immich selbst antwortet, zum Beispiel mit https:// statt http://.",
       "unknown": "Immich hat unerwartet geantwortet."
     },
     "abort": {

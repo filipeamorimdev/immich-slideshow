@@ -1,4 +1,4 @@
-# Immich Slideshow
+# Home Assistant Immich Slideshow
 
 A Home Assistant integration with three dashboard cards that show photos from your Immich server:
 
@@ -39,7 +39,7 @@ The images on this page use generated landscapes.
 1. Go to **Settings > Devices & services**, choose **Add integration** and pick **Immich Slideshow**.
 2. Enter the address you open Immich at, such as `http://192.168.1.10:2283`, and the API key.
 
-The integration adds the cards to your dashboards' resources. If your dashboards keep their resources in YAML, add `/immich_slideshow/immich-slideshow.js` as a JavaScript module yourself.
+The integration adds the cards to your dashboards' resources, and takes them away when you remove its last server. If your dashboards keep their resources in YAML, add `/immich_slideshow/immich-slideshow.js` as a JavaScript module yourself.
 
 ### Coming from the standalone card
 
@@ -99,15 +99,32 @@ It needs no setup. It shows Immich's "on this day" memories, most recent year fi
 | --- | --- | --- |
 | `interval` | `10` | Seconds per photo, at least 3. |
 | `shuffle` | `true`, or `false` for On This Day | Show photos in random order. |
+| `videos` | `false` | Include videos. See [Behavior](#behavior). |
 | `fit` | `auto` | How photos fill the tile. See [Photo fit](#photo-fit). |
-| `show_date` | `true` | Show when the photo was taken. |
-| `show_place` | `true` | Show where the photo was taken. |
+| `description` | `[date, place]` | What to show under each photo, in order. See [Description](#description). |
 | `title` | none | A caption at the bottom of the tile. |
 | `server` | the first one | The Immich server, if you set up more than one. The editor shows this only when there's a choice. |
 
-### Date and place
+### Description
 
-Each photo shows when and where it was taken, such as "17 August 2023 · Monchique, Portugal". On This Day says how long ago instead, such as "3 years ago". The date is the one on the camera's clock where the photo was taken. The place is the city and country Immich found from the photo's location, and is left out when the photo has none.
+Each photo shows when and where it was taken, such as "17 August 2023 · Monchique, Portugal". In the editor, the description is a row of tags: add, remove and drag them to choose what it says. In YAML, it's a list, and an empty list shows nothing:
+
+```yaml
+description: [people, city, year]
+```
+
+| Tag | Shows |
+| --- | --- |
+| `date` | The full date, such as "17 August 2023". On This Day says how long ago instead, such as "3 years ago". |
+| `year` | The year alone. |
+| `place` | The city and country, such as "Monchique, Portugal". The region stands in for a missing city. |
+| `country` | The country. |
+| `city` | The city. |
+| `people` | The named people Immich recognized in the photo, such as "Ana and Rui". Hidden people are left out. |
+
+The date is the one on the camera's clock where the photo was taken. The place comes from what Immich found from the photo's location. A tag is left out for a photo that has nothing to show for it. Opened full screen, a photo always shows its date and place.
+
+`show_date: false` and `show_place: false` from earlier versions still work, and the editor turns them into a description.
 
 ### Photo fit
 
@@ -136,7 +153,7 @@ Tap a tile to see the current photo full screen, with its date and place. The sl
 
 ## Entities
 
-Each Immich server gets a device called **Immich**, under **Settings > Devices & services > Immich Slideshow**. Statistics are read every 15 minutes. Duplicates and stacks are read every 6 hours, because Immich sends them as whole lists.
+Each Immich server gets a device called **Immich**, under **Settings > Devices & services > Immich Slideshow**. Statistics are read every 15 minutes, and only those whose entities are turned on. Duplicates and stacks are read every 6 hours, because Immich sends them as whole lists.
 
 ### Your library
 
@@ -182,81 +199,21 @@ Both have the photo's date and place as attributes, and need only the permission
 
 ## Behavior
 
-- **Photos only:** videos are left out.
+- **Videos:** left out unless you turn on `videos`. A video shows as a still first, then plays once to the end, without sound, and stays for at least the photo interval. If the browser can't play it, or it stops loading for 15 seconds, the still stays and the slideshow moves on. Home Assistant's log then says why, with the browser it happened in: `format` (the browser can't play that kind of video, such as HEVC), `decode`, `network`, `stalled`, `refused` or `link`. Each reason is a warning once an hour for each browser. Full screen, a video has a button to turn its sound on. Videos are streamed through Home Assistant. The photo entities show photos only.
 - **Image size:** the tile loads Immich's `preview` size, so it doesn't pull full-resolution files every few seconds. If a preview can't be loaded, it uses the full image. The blurred background uses the much smaller thumbnail, and only loads for photos shown whole.
 - **Broken photos:** a photo that won't load is skipped.
 - **Pausing:** the slideshow stops, and stops loading images, while the tile is off screen or the browser tab is hidden.
 - **Reduced motion:** if your device asks for reduced motion, the tile shows one photo and stays still, with a play button to start and pause the slideshow.
-- **New photos:** albums and searches are checked again about once an hour, and the new photos join from the next round.
-- **Access:** anyone who can log in to Home Assistant, admin or not, can see every photo the API key can see, and search them. Use the key of an Immich user whose photos everyone in your Home Assistant may see. Photo links are signed and expire after five minutes.
+- **New photos:** albums and searches are checked again about once an hour, and the new photos join from the next round. Cards that show the same photos share one list for five minutes, so a photo you just added can take that long to appear after a reload.
+- **Errors:** if Immich can't answer, the card says so and tries again every minute. What Immich answered is in Home Assistant's log, not on the dashboard.
+- **Access:** only Home Assistant admins can use the cards. They can see every photo and video the API key can see, and search them, whether or not a card has `videos` turned on. Anyone else sees a message on the card instead of photos. Photo links are signed and expire after five minutes, and still work only for an admin. A video's link lasts five minutes longer than the video. The photo entities and the statistics are Home Assistant entities, which every user can see.
 - **A refused key:** if Immich refuses the API key, Home Assistant asks for a new one under **Settings > Devices & services**.
 
 ## Languages
 
-The cards follow your Home Assistant language: English, Portuguese, Spanish, French or German. Anything else falls back to English. Dates follow your Home Assistant language and region.
+The cards are available in English, Portuguese, Spanish, French and German. Anything else falls back to English.
 
-## Development
-
-There is no build step. The cards are the single file `custom_components/immich_slideshow/frontend/immich-slideshow.js`.
-
-The integration's tests use Home Assistant's own test tools:
-
-```bash
-uv venv .venv --python 3.14
-```
-
-```bash
-uv pip install --python .venv pytest-homeassistant-custom-component home-assistant-frontend
-```
-
-```bash
-.venv/bin/python -m pytest
-```
-
-The cards' tests run in Chromium and WebKit against `dev/harness.html`, which fakes Home Assistant and the integration with generated images:
-
-```bash
-npm install
-```
-
-```bash
-npx playwright install chromium webkit
-```
-
-```bash
-npm test
-```
-
-The harness also stands in for Home Assistant's `ha-form` component, so check changes to the editors on a real Home Assistant too.
-
-To open the harness yourself, run `node dev/server.js` and go to the address it prints. It takes these address options:
-
-| Option | Effect |
-| --- | --- |
-| `card=magic` | Shows a card other than the slideshow: `magic` or `on_this_day`. |
-| `album=lisbon` | Sets the album: `lisbon`, `demo`, `shapes`, `pair`, `single`, `flaky`, `allbroken`, `empty`, `big` or `denied`. Add `legacy=1` to save it the way the standalone card did. |
-| `source=random` | Shows random photos. `randomsize=0` makes the library empty. |
-| `query=snow` | Sets the Magic card's description. `nothing` finds no photos. |
-| `count=10` | Sets the Magic card's number of photos. |
-| `interval=3` | Sets the seconds per photo. |
-| `shuffle=0` | Turns shuffle off, or on with `1`. |
-| `fit=contain` | Sets the photo fit. |
-| `show_date=0` | Hides the date. `show_place=0` hides the place. |
-| `title=Summer` | Sets the caption. |
-| `day=2026-11-09` | Sets the On This Day date. `refreshin=5000` makes the card look for the next day's photos after this many milliseconds, and `nomemories=1` gives a day with no photos. |
-| `nopreview=1` | Makes preview images fail, to test the fallback. |
-| `nothumb=1` | Makes thumbnails fail, so there's no blurred background. |
-| `slowthumb=5000` | Delays thumbnails by this many milliseconds. |
-| `box=1` | Puts the card in a fixed-size box, like a dashboard grid cell. |
-| `spacer=1` | Starts the card off screen. |
-| `multi=1` | Simulates two Immich servers. |
-| `nosource=1` | Simulates the integration with no server set up. |
-| `nointegration=1` | Simulates the integration not being installed. |
-| `noform=1` | Makes Home Assistant's form fail to load. |
-| `lang=pt` | Sets the language. |
-| `editor=1` | Shows the card editor. |
-
-To regenerate the images in `docs/`, run `npm run media`. This needs `ffmpeg`.
+Dates follow your Home Assistant language and region.
 
 ## License
 

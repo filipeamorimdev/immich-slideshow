@@ -36,12 +36,23 @@ def make_asset(
     state: str | None = "Île-de-France",
     country: str | None = "France",
     kind: str = "IMAGE",
+    people: Iterable[str | tuple[str, bool]] = (),
 ) -> dict[str, Any]:
-    """An asset as Immich returns it, with the fields the integration reads."""
+    """An asset as Immich returns it, with the fields the integration reads.
+
+    Each of the people is a name, or a name and whether the person is hidden.
+    """
+    faces = [(person, False) if isinstance(person, str) else person for person in people]
     return {
+        "people": [
+            {"id": uid(500 + i), "name": name, "isHidden": hidden, "birthDate": "1990-01-01"}
+            for i, (name, hidden) in enumerate(faces)
+        ],
         "id": uid(n),
         "type": kind,
         "localDateTime": taken,
+        # In milliseconds, and only videos have one.
+        "duration": 12_345 if kind == "VIDEO" else None,
         "originalFileName": f"IMG_{n:04d}.JPG",
         "originalPath": f"/photos/IMG_{n:04d}.JPG",
         "exifInfo": {"city": city, "state": state, "country": country, "make": "Apple"},
@@ -51,7 +62,8 @@ def make_asset(
 class FakeImmich:
     """Answers the requests the integration makes, and records them."""
 
-    def __init__(self) -> None:
+    def __init__(self, mock: AiohttpClientMocker) -> None:
+        self.mock = mock
         self.permissions: list[str] = ["all"]
         self.status: dict[str, int] = {}
         self.errors: dict[str, Exception] = {}
@@ -62,7 +74,12 @@ class FakeImmich:
         self.smart: list[dict[str, Any]] = []
         self.memories: list[dict[str, Any]] = []
         self.lookup: dict[str, dict[str, Any]] = {}
+        # A key without person.read is refused when it asks who is in the photos.
+        self.people_forbidden = False
         self.image = (b"\xff\xd8 fake jpeg", "image/jpeg")
+        # Immich says how long a photo is. A proxy in front of it may not.
+        self.image_length = True
+        self.video = (bytes(range(256)) * 4, "video/mp4")
         self.requests: list[tuple[str, str, dict[str, list[str]], Any]] = []
         # Statistics, by path. Each answer is what Immich 3.3 sends.
         self.stats: dict[str, Any] = {
@@ -167,19 +184,42 @@ class FakeImmich:
             if album is None:
                 return self._reply(method, url, 400, json={"message": "Not found or no album.read access"})
             return self._reply(method, url, json=album)
+        if path in ("/search/metadata", "/search/random") and data.get("withPeople") and self.people_forbidden:
+            return self._reply(method, url, 403, json={"message": "Missing required permission: person.read"})
         if path == "/search/metadata":
             return self._reply(method, url, json=self._metadata(data))
         if path == "/search/random":
-            return self._reply(method, url, json=self.random[: data["size"]])
+            items = _of_type(self.random, data["filter"])[: data["size"]]
+            return self._reply(method, url, json=_people(items, data))
         if path == "/search/smart":
-            items = self.smart[: data["size"]]
+            # A smart search never says who is in a photo.
+            items = _people(_of_type(self.smart, data["filter"])[: data["size"]], {})
             return self._reply(method, url, json={"assets": {"items": items, "nextPage": None}})
         if path == "/memories":
             return self._reply(method, url, json=self.memories)
         if path.endswith("/thumbnail"):
             body, content_type = self.image
-            return self._reply(method, url, response=body, headers={"Content-Type": content_type})
+            headers = {"Content-Type": content_type}
+            if self.image_length:
+                headers["Content-Length"] = str(len(body))
+            return self._reply(method, url, response=body, headers=headers)
+        if path.endswith("/video/playback"):
+            return self._video(method, url)
         raise AssertionError(f"Unexpected request {method} {path}")
+
+    def _video(self, method: str, url: Any) -> AiohttpClientMockResponse:
+        """The whole video, or the bytes the Range header asks for."""
+        body, content_type = self.video
+        headers = {"Content-Type": content_type, "Accept-Ranges": "bytes"}
+        asked = re.match(r"bytes=(\d+)-(\d*)$", self.mock.mock_calls[-1][3].get("Range", ""))
+        if not asked:
+            headers["Content-Length"] = str(len(body))
+            return self._reply(method, url, response=body, headers=headers)
+        start = int(asked[1])
+        end = int(asked[2]) if asked[2] else len(body) - 1
+        headers["Content-Length"] = str(end - start + 1)
+        headers["Content-Range"] = f"bytes {start}-{end}/{len(body)}"
+        return self._reply(method, url, 206, response=body[start : end + 1], headers=headers)
 
     def _count(self, rules: dict[str, Any]) -> int:
         assert rules["visibility"] == {"in": ["timeline", "archive"]}
@@ -197,15 +237,30 @@ class FakeImmich:
             assets = self.album_assets.get(rules["albumIds"]["any"][0], [])
         else:
             ids = [branch["id"]["eq"] for branch in rules.get("or", [])]
-            assets = [self.lookup[i] for i in ids if i in self.lookup and self.lookup[i]["type"] == "IMAGE"]
+            assets = [self.lookup[i] for i in ids if i in self.lookup]
+        assets = _of_type(assets, rules)
         start = int(body.get("cursor") or 0)
         end = start + body["size"]
         return {
             "assets": {
-                "items": assets[start:end],
+                "items": _people(assets[start:end], body),
                 "nextCursor": str(end) if end < len(assets) else None,
             }
         }
+
+
+def _people(assets: list[dict[str, Any]], body: dict[str, Any]) -> list[dict[str, Any]]:
+    """The assets, with their people only when the request asks for them."""
+    if body.get("withPeople"):
+        return assets
+    return [{key: value for key, value in asset.items() if key != "people"} for asset in assets]
+
+
+def _of_type(assets: list[dict[str, Any]], rules: dict[str, Any]) -> list[dict[str, Any]]:
+    """The assets a filter's type rule lets through."""
+    rule = rules["type"]
+    kinds = rule["in"] if "in" in rule else [rule["eq"]]
+    return [asset for asset in assets if asset["type"] in kinds]
 
 
 @pytest.fixture(autouse=True)
@@ -216,7 +271,7 @@ def auto_enable_custom_integrations(enable_custom_integrations: None) -> None:
 @pytest.fixture
 def immich(aioclient_mock: AiohttpClientMocker) -> FakeImmich:
     """A fake Immich server at URL."""
-    server = FakeImmich()
+    server = FakeImmich(aioclient_mock)
     pattern = re.compile(rf"^{re.escape(URL)}/api/")
     for method in ("get", "post"):
         aioclient_mock.request(method, pattern, side_effect=server.handle)

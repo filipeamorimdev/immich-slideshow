@@ -10,12 +10,13 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from homeassistant.components.frontend import DATA_EXTRA_MODULE_URL
 from homeassistant.config_entries import SOURCE_REAUTH, ConfigEntryState
 from homeassistant.core import HomeAssistant
+from homeassistant.const import CONF_API_KEY, CONF_URL, CONF_VERIFY_SSL
 from homeassistant.setup import async_setup_component
 
 from custom_components.immich_slideshow.const import CARD_URL, DOMAIN, VERSION
 from custom_components.immich_slideshow.frontend import is_legacy_resource
 
-from .conftest import FakeImmich
+from .conftest import API_KEY, URL, FakeImmich
 
 
 async def setup(hass: HomeAssistant, entry: MockConfigEntry) -> None:
@@ -96,6 +97,63 @@ async def test_registers_the_dashboard_resource_and_replaces_old_ones(hass: Home
 async def test_adds_the_dashboard_resource_once(hass: HomeAssistant, immich: FakeImmich) -> None:
     assert await async_setup_component(hass, "lovelace", {})
     assert await async_setup_component(hass, DOMAIN, {})
+    resources = hass.data["lovelace"].resources
+    assert [item["url"] for item in resources.async_items()] == [f"{CARD_URL}?v={VERSION}"]
+
+
+def another_entry() -> MockConfigEntry:
+    return MockConfigEntry(
+        domain=DOMAIN,
+        title="immich.local",
+        unique_id=f"{URL}/second",
+        data={CONF_URL: URL, CONF_API_KEY: API_KEY, CONF_VERIFY_SSL: True},
+    )
+
+
+async def test_removing_the_last_server_takes_the_dashboard_resource_away(hass: HomeAssistant, immich: FakeImmich, config_entry: MockConfigEntry) -> None:
+    assert await async_setup_component(hass, "lovelace", {})
+    resources = hass.data["lovelace"].resources
+    await resources.async_load()
+    resources.loaded = True
+    await resources.async_create_item({"res_type": "module", "url": "/local/other-card.js"})
+
+    def urls() -> list[str]:
+        return sorted(item["url"] for item in resources.async_items())
+
+    second = another_entry()
+    await setup(hass, config_entry)
+    await setup(hass, second)
+    assert urls() == sorted([f"{CARD_URL}?v={VERSION}", "/local/other-card.js"])
+
+    # Another server still needs the cards.
+    assert await hass.config_entries.async_remove(config_entry.entry_id)
+    await hass.async_block_till_done()
+    assert urls() == sorted([f"{CARD_URL}?v={VERSION}", "/local/other-card.js"])
+
+    assert await hass.config_entries.async_remove(second.entry_id)
+    await hass.async_block_till_done()
+    assert urls() == ["/local/other-card.js"]
+
+    # A server added again, without a restart, brings the cards back.
+    await setup(hass, another_entry())
+    assert urls() == sorted([f"{CARD_URL}?v={VERSION}", "/local/other-card.js"])
+
+
+async def test_removing_the_last_server_takes_the_extra_module_away(hass: HomeAssistant, immich: FakeImmich, config_entry: MockConfigEntry) -> None:
+    with patch("custom_components.immich_slideshow.frontend._async_resources", return_value=None):
+        await setup(hass, config_entry)
+        assert f"{CARD_URL}?v={VERSION}" in hass.data[DATA_EXTRA_MODULE_URL].urls
+        assert await hass.config_entries.async_remove(config_entry.entry_id)
+        await hass.async_block_till_done()
+        assert f"{CARD_URL}?v={VERSION}" not in hass.data[DATA_EXTRA_MODULE_URL].urls
+        await setup(hass, another_entry())
+        assert f"{CARD_URL}?v={VERSION}" in hass.data[DATA_EXTRA_MODULE_URL].urls
+
+
+async def test_unloading_a_server_keeps_the_dashboard_resource(hass: HomeAssistant, immich: FakeImmich, config_entry: MockConfigEntry) -> None:
+    assert await async_setup_component(hass, "lovelace", {})
+    await setup(hass, config_entry)
+    assert await hass.config_entries.async_unload(config_entry.entry_id)
     resources = hass.data["lovelace"].resources
     assert [item["url"] for item in resources.async_items()] == [f"{CARD_URL}?v={VERSION}"]
 

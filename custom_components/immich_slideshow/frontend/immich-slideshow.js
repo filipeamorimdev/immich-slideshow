@@ -1,17 +1,21 @@
 // Immich slideshow cards for Home Assistant: an album or random photos, a smart
-// search, and photos from this day in earlier years. Photos come through the
-// Immich Slideshow integration, so the cards never see or store an API key.
+// search, and photos from this day in earlier years. Photos and videos come through
+// the Immich Slideshow integration, so the cards never see or store an API key.
 
-const IS_VERSION = '0.6.0';
+const IS_VERSION = '0.6.0.2';
 const IS_DOMAIN = 'immich_slideshow';
 const IS_REPO = 'https://github.com/filipeamorimdev/immich-slideshow';
 const IS_DEFAULT_INTERVAL = 10;
 const IS_MIN_INTERVAL = 3;
 const IS_SIGN_SECONDS = 300;
+// A photo's link is used again for this long, which leaves the photo a minute to load.
+const IS_SIGN_REUSE_MS = 240 * 1000;
 const IS_RELOAD_MS = 60 * 60 * 1000;
 const IS_RETRY_MS = 60 * 1000;
 const IS_MAX_SKIPS = 5;
 const IS_FADE_MS = 1000;
+// A video that shows nothing new for this long is given up on.
+const IS_STALL_MS = 15 * 1000;
 // The automatic fit fills the tile unless that would crop more than this share of the photo.
 const IS_MAX_CROP = 0.3;
 const IS_MAX_ZOOM = 5;
@@ -19,6 +23,9 @@ const IS_SEARCH_COUNT = 50;
 const IS_SEARCH_MAX = 250;
 // Waits for a pause in typing before searching.
 const IS_TYPING_MS = 800;
+// What the line under a photo can be made of, and what it's made of unless the card says otherwise.
+const IS_TAGS = ['date', 'year', 'place', 'country', 'city', 'people'];
+const IS_DEFAULT_TAGS = ['date', 'place'];
 
 const IS_TRANSLATIONS = {
   en: {
@@ -29,6 +36,7 @@ const IS_TRANSLATIONS = {
     no_matches: 'No photos match this description',
     no_memories: 'No photos from this day in earlier years',
     no_integration: 'Set up the Immich Slideshow integration first.',
+    admin_only: 'Only Home Assistant admins can see these photos.',
     photos_failed: "Couldn't load the photos",
     load_failed: "Couldn't get the photos from Immich",
     try_again: 'Try again',
@@ -42,6 +50,9 @@ const IS_TRANSLATIONS = {
     position: '{i} of {n}',
     viewer: 'Photo viewer',
     photo_failed: "Couldn't load this photo",
+    video_failed: "Couldn't play this video",
+    mute: 'Turn sound off',
+    unmute: 'Turn sound on',
     editor_unavailable: "Couldn't load the editor. Use the code editor instead.",
     editor_server: 'Immich server',
     editor_source: 'Photos',
@@ -58,13 +69,21 @@ const IS_TRANSLATIONS = {
     editor_interval: 'Seconds per photo',
     editor_interval_hint: 'At least 3',
     editor_shuffle: 'Shuffle',
+    editor_videos: 'Include videos',
+    editor_videos_hint: 'Videos play to the end, without sound.',
     editor_fit: 'Photo fit',
     editor_fit_auto: 'Automatic',
     editor_fit_hint: 'Automatic fills the tile, unless that would cut off too much of the photo.',
     editor_fit_cover: 'Fill the tile',
     editor_fit_contain: 'Show the whole photo',
-    editor_show_date: 'Show the date',
-    editor_show_place: 'Show the place',
+    editor_description: 'Description',
+    editor_description_hint: 'What to show under each photo, in this order. Remove everything to show nothing.',
+    tag_date: 'Date',
+    tag_year: 'Year',
+    tag_place: 'Place',
+    tag_country: 'Country',
+    tag_city: 'City',
+    tag_people: 'People',
     editor_title: 'Caption',
     editor_title_hint: 'Leave empty for no caption',
   },
@@ -76,6 +95,7 @@ const IS_TRANSLATIONS = {
     no_matches: 'Nenhuma foto corresponde a esta descrição',
     no_memories: 'Não há fotos deste dia em anos anteriores',
     no_integration: 'Configure primeiro a integração Immich Slideshow.',
+    admin_only: 'Só os administradores do Home Assistant podem ver estas fotos.',
     photos_failed: 'Não foi possível carregar as fotos',
     load_failed: 'Não foi possível obter as fotos do Immich',
     try_again: 'Tentar novamente',
@@ -89,6 +109,9 @@ const IS_TRANSLATIONS = {
     position: '{i} de {n}',
     viewer: 'Visualizador de fotos',
     photo_failed: 'Não foi possível carregar esta foto',
+    video_failed: 'Não foi possível reproduzir este vídeo',
+    mute: 'Desligar o som',
+    unmute: 'Ligar o som',
     editor_unavailable: 'Não foi possível carregar o editor. Use o editor de código.',
     editor_server: 'Servidor Immich',
     editor_source: 'Fotos',
@@ -105,13 +128,21 @@ const IS_TRANSLATIONS = {
     editor_interval: 'Segundos por foto',
     editor_interval_hint: 'Pelo menos 3',
     editor_shuffle: 'Ordem aleatória',
+    editor_videos: 'Incluir vídeos',
+    editor_videos_hint: 'Os vídeos são reproduzidos até ao fim, sem som.',
     editor_fit: 'Ajuste da foto',
     editor_fit_auto: 'Automático',
     editor_fit_hint: 'O modo automático preenche o cartão, exceto se isso cortar demasiado da foto.',
     editor_fit_cover: 'Preencher o cartão',
     editor_fit_contain: 'Mostrar a foto inteira',
-    editor_show_date: 'Mostrar a data',
-    editor_show_place: 'Mostrar o local',
+    editor_description: 'Descrição',
+    editor_description_hint: 'O que mostrar por baixo de cada foto, por esta ordem. Remova tudo para não mostrar nada.',
+    tag_date: 'Data',
+    tag_year: 'Ano',
+    tag_place: 'Local',
+    tag_country: 'País',
+    tag_city: 'Cidade',
+    tag_people: 'Pessoas',
     editor_title: 'Legenda',
     editor_title_hint: 'Deixe vazio para não mostrar legenda',
   },
@@ -123,6 +154,7 @@ const IS_TRANSLATIONS = {
     no_matches: 'Ninguna foto coincide con esta descripción',
     no_memories: 'No hay fotos de este día en años anteriores',
     no_integration: 'Configura primero la integración Immich Slideshow.',
+    admin_only: 'Solo los administradores de Home Assistant pueden ver estas fotos.',
     photos_failed: 'No se pudieron cargar las fotos',
     load_failed: 'No se pudieron obtener las fotos de Immich',
     try_again: 'Reintentar',
@@ -136,6 +168,9 @@ const IS_TRANSLATIONS = {
     position: '{i} de {n}',
     viewer: 'Visor de fotos',
     photo_failed: 'No se pudo cargar esta foto',
+    video_failed: 'No se pudo reproducir este vídeo',
+    mute: 'Desactivar el sonido',
+    unmute: 'Activar el sonido',
     editor_unavailable: 'No se pudo cargar el editor. Usa el editor de código.',
     editor_server: 'Servidor de Immich',
     editor_source: 'Fotos',
@@ -152,13 +187,21 @@ const IS_TRANSLATIONS = {
     editor_interval: 'Segundos por foto',
     editor_interval_hint: 'Al menos 3',
     editor_shuffle: 'Orden aleatorio',
+    editor_videos: 'Incluir vídeos',
+    editor_videos_hint: 'Los vídeos se reproducen hasta el final, sin sonido.',
     editor_fit: 'Ajuste de la foto',
     editor_fit_auto: 'Automático',
     editor_fit_hint: 'El modo automático llena la tarjeta, salvo que eso recorte demasiado la foto.',
     editor_fit_cover: 'Llenar la tarjeta',
     editor_fit_contain: 'Mostrar la foto completa',
-    editor_show_date: 'Mostrar la fecha',
-    editor_show_place: 'Mostrar el lugar',
+    editor_description: 'Descripción',
+    editor_description_hint: 'Qué mostrar debajo de cada foto, en este orden. Quítalo todo para no mostrar nada.',
+    tag_date: 'Fecha',
+    tag_year: 'Año',
+    tag_place: 'Lugar',
+    tag_country: 'País',
+    tag_city: 'Ciudad',
+    tag_people: 'Personas',
     editor_title: 'Leyenda',
     editor_title_hint: 'Déjalo vacío para no mostrar leyenda',
   },
@@ -170,6 +213,7 @@ const IS_TRANSLATIONS = {
     no_matches: 'Aucune photo ne correspond à cette description',
     no_memories: 'Aucune photo de ce jour les années précédentes',
     no_integration: "Configurez d'abord l'intégration Immich Slideshow.",
+    admin_only: 'Seuls les administrateurs de Home Assistant peuvent voir ces photos.',
     photos_failed: 'Impossible de charger les photos',
     load_failed: "Impossible d'obtenir les photos d'Immich",
     try_again: 'Réessayer',
@@ -183,6 +227,9 @@ const IS_TRANSLATIONS = {
     position: '{i} sur {n}',
     viewer: 'Visionneuse de photos',
     photo_failed: 'Impossible de charger cette photo',
+    video_failed: 'Impossible de lire cette vidéo',
+    mute: 'Couper le son',
+    unmute: 'Activer le son',
     editor_unavailable: "Impossible de charger l'éditeur. Utilisez l'éditeur de code.",
     editor_server: 'Serveur Immich',
     editor_source: 'Photos',
@@ -199,13 +246,21 @@ const IS_TRANSLATIONS = {
     editor_interval: 'Secondes par photo',
     editor_interval_hint: 'Au moins 3',
     editor_shuffle: 'Ordre aléatoire',
+    editor_videos: 'Inclure les vidéos',
+    editor_videos_hint: "Les vidéos sont lues jusqu'à la fin, sans le son.",
     editor_fit: 'Ajustement de la photo',
     editor_fit_auto: 'Automatique',
     editor_fit_hint: 'Le mode automatique remplit la carte, sauf si cela coupe trop la photo.',
     editor_fit_cover: 'Remplir la carte',
     editor_fit_contain: 'Afficher toute la photo',
-    editor_show_date: 'Afficher la date',
-    editor_show_place: 'Afficher le lieu',
+    editor_description: 'Description',
+    editor_description_hint: "Ce qui s'affiche sous chaque photo, dans cet ordre. Retirez tout pour ne rien afficher.",
+    tag_date: 'Date',
+    tag_year: 'Année',
+    tag_place: 'Lieu',
+    tag_country: 'Pays',
+    tag_city: 'Ville',
+    tag_people: 'Personnes',
     editor_title: 'Légende',
     editor_title_hint: 'Laissez vide pour ne pas afficher de légende',
   },
@@ -217,6 +272,7 @@ const IS_TRANSLATIONS = {
     no_matches: 'Keine Fotos passen zu dieser Beschreibung',
     no_memories: 'Keine Fotos von diesem Tag aus früheren Jahren',
     no_integration: 'Richte zuerst die Immich-Slideshow-Integration ein.',
+    admin_only: 'Nur Home-Assistant-Administratoren können diese Fotos sehen.',
     photos_failed: 'Die Fotos konnten nicht geladen werden',
     load_failed: 'Die Fotos konnten nicht von Immich abgerufen werden',
     try_again: 'Erneut versuchen',
@@ -230,6 +286,9 @@ const IS_TRANSLATIONS = {
     position: '{i} von {n}',
     viewer: 'Fotoansicht',
     photo_failed: 'Dieses Foto konnte nicht geladen werden',
+    video_failed: 'Dieses Video konnte nicht abgespielt werden',
+    mute: 'Ton ausschalten',
+    unmute: 'Ton einschalten',
     editor_unavailable: 'Der Editor konnte nicht geladen werden. Verwende stattdessen den Code-Editor.',
     editor_server: 'Immich-Server',
     editor_source: 'Fotos',
@@ -246,13 +305,21 @@ const IS_TRANSLATIONS = {
     editor_interval: 'Sekunden pro Foto',
     editor_interval_hint: 'Mindestens 3',
     editor_shuffle: 'Zufällige Reihenfolge',
+    editor_videos: 'Videos einbeziehen',
+    editor_videos_hint: 'Videos werden bis zum Ende und ohne Ton abgespielt.',
     editor_fit: 'Fotoanpassung',
     editor_fit_auto: 'Automatisch',
     editor_fit_hint: 'Automatisch füllt die Karte, außer wenn dabei zu viel vom Foto abgeschnitten würde.',
     editor_fit_cover: 'Karte ausfüllen',
     editor_fit_contain: 'Ganzes Foto anzeigen',
-    editor_show_date: 'Datum anzeigen',
-    editor_show_place: 'Ort anzeigen',
+    editor_description: 'Beschreibung',
+    editor_description_hint: 'Was unter jedem Foto steht, in dieser Reihenfolge. Alles entfernen, um nichts anzuzeigen.',
+    tag_date: 'Datum',
+    tag_year: 'Jahr',
+    tag_place: 'Ort',
+    tag_country: 'Land',
+    tag_city: 'Stadt',
+    tag_people: 'Personen',
     editor_title: 'Beschriftung',
     editor_title_hint: 'Leer lassen, um keine Beschriftung anzuzeigen',
   },
@@ -266,6 +333,8 @@ const IS_ICONS = {
   previous: 'M15.41,16.58L10.83,12L15.41,7.41L14,6L8,12L14,18L15.41,16.58Z',
   next: 'M8.59,16.58L13.17,12L8.59,7.41L10,6L16,12L10,18L8.59,16.58Z',
   close: 'M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z',
+  sound_on: 'M14,3.23V5.29C16.89,6.15 19,8.83 19,12C19,15.17 16.89,17.84 14,18.7V20.77C18,19.86 21,16.28 21,12C21,7.72 18,4.14 14,3.23M16.5,12C16.5,10.23 15.5,8.71 14,7.97V16C15.5,15.29 16.5,13.76 16.5,12M3,9V15H7L12,20V4L7,9H3Z',
+  sound_off: 'M12,4L9.91,6.09L12,8.18M4.27,3L3,4.27L7.73,9H3V15H7L12,20V13.27L16.25,17.53C15.58,18.04 14.83,18.46 14,18.7V20.77C15.38,20.45 16.63,19.82 17.68,18.96L19.73,21L21,19.73L12,10.73M19,12C19,12.94 18.8,13.82 18.46,14.64L19.97,16.15C20.62,14.91 21,13.5 21,12C21,7.72 18,4.14 14,3.23V5.29C16.89,6.15 19,8.83 19,12M16.5,12C16.5,10.23 15.5,8.71 14,7.97V10.18L16.45,12.63C16.5,12.43 16.5,12.21 16.5,12Z',
 };
 
 // Albums saved by earlier versions are media source IDs that end in "|albums|<id>".
@@ -396,6 +465,55 @@ function isLoadImage(url) {
   });
 }
 
+// Photo and video links signed a short while ago, by path. A new link for the same file
+// is a new address, which the browser would load again, so every card on the page shares these.
+const isLinks = new Map();
+
+// Returns the link kept for a path, or asks `sign` for one.
+function isLink(path, sign) {
+  const now = Date.now();
+  const kept = isLinks.get(path);
+  if (kept && now - kept.at < IS_SIGN_REUSE_MS) return kept.url;
+  for (const [key, link] of isLinks) {
+    if (now - link.at >= IS_SIGN_REUSE_MS) isLinks.delete(key);
+  }
+  const link = { at: now, url: sign(path) };
+  isLinks.set(path, link);
+  link.url.catch(() => {
+    if (isLinks.get(path) === link) isLinks.delete(path);
+  });
+  return link.url;
+}
+
+// Why a video's `error` event fired, from the browser's own code for it.
+const IS_VIDEO_ERRORS = { 2: 'network', 3: 'decode', 4: 'format' };
+
+// Why `play()` was refused: the browser wants a tap first, or can't play this kind of video.
+function isPlayFailure(err) {
+  if (err?.name === 'NotAllowedError') return 'refused';
+  return err?.name === 'NotSupportedError' ? 'format' : 'unknown';
+}
+
+// What the browser knows about a video that failed: its own message, how far loading
+// and playing got, and the video's size if that much arrived.
+function isVideoDetail(video, err) {
+  const parts = [];
+  const message = video?.error?.message || err?.message;
+  if (message) parts.push(message);
+  if (video) {
+    parts.push(`loaded ${video.readyState}/4`, `network ${video.networkState}`);
+    if (video.videoWidth) parts.push(`${video.videoWidth}x${video.videoHeight}`);
+    if (Number.isFinite(video.duration)) parts.push(`${Math.round(video.duration)}s long`);
+    parts.push(`at ${video.currentTime.toFixed(1)}s`);
+  }
+  return parts.join(', ').slice(0, 300);
+}
+
+// A video's link has to last until the video has played, not only until it has loaded.
+function isVideoSeconds(item) {
+  return IS_SIGN_SECONDS + Math.ceil(Number(item.duration) || 0);
+}
+
 function isCapitalize(text) {
   return text ? text.charAt(0).toLocaleUpperCase() + text.slice(1) : text;
 }
@@ -413,6 +531,15 @@ function isTaken(item) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+// The parts of the line under a photo, in the card's order.
+function isTags(config) {
+  if (Array.isArray(config.description)) {
+    return [...new Set(config.description.filter((tag) => IS_TAGS.includes(tag)))];
+  }
+  // Earlier versions had a switch for the date and one for the place.
+  return IS_DEFAULT_TAGS.filter((tag) => config[`show_${tag}`] !== false);
+}
+
 const IS_CARD_STYLE = `
   :host { display: block; height: 100%; }
   [hidden] { display: none !important; }
@@ -420,8 +547,10 @@ const IS_CARD_STYLE = `
   .stage { display: block; position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; border: 0; border-radius: inherit; background: var(--secondary-background-color); cursor: pointer; }
   .stage:focus-visible { outline: 2px solid var(--primary-color); outline-offset: -2px; }
   .slide { position: absolute; inset: 0; overflow: hidden; opacity: 0; transition: opacity ${IS_FADE_MS}ms ease-in-out; }
-  .photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-  .slide.whole .photo { object-fit: contain; }
+  .photo, .clip { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .slide.whole .photo, .slide.whole .clip { object-fit: contain; }
+  .clip { opacity: 0; transition: opacity .3s; }
+  .clip.on { opacity: 1; }
   .backdrop { display: none; position: absolute; inset: -10%; width: 120%; height: 120%; object-fit: cover; filter: blur(28px) brightness(.7); }
   .slide.whole .backdrop { display: block; }
   .slide.on { opacity: 1; }
@@ -440,7 +569,7 @@ const IS_CARD_STYLE = `
   .spinner { width: 28px; height: 28px; border: 3px solid var(--divider-color); border-top-color: var(--primary-color); border-radius: 50%; animation: is-spin 1s linear infinite; }
   @keyframes is-spin { to { transform: rotate(360deg); } }
   @keyframes is-fade { from { opacity: 0; } }
-  @media (prefers-reduced-motion: reduce) { .slide { transition: none; } .meta { animation: none; } .spinner { animation-duration: 3s; } }
+  @media (prefers-reduced-motion: reduce) { .slide, .clip { transition: none; } .meta { animation: none; } .spinner { animation-duration: 3s; } }
 `;
 
 const IS_VIEWER_STYLE = `
@@ -449,9 +578,9 @@ const IS_VIEWER_STYLE = `
   .scrim { position: absolute; inset: 0; background: #000; }
   .stage { position: absolute; inset: 0; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; }
   .media { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; will-change: transform; }
-  .media img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; -webkit-user-drag: none; }
-  .media img.full { opacity: 0; transition: opacity .15s; }
-  .media img.full.ready { opacity: 1; }
+  .media img, .media video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; -webkit-user-drag: none; }
+  .media .full { opacity: 0; transition: opacity .15s; }
+  .media .full.ready { opacity: 1; }
   .bar { position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: center; gap: 12px; padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) 24px max(16px, env(safe-area-inset-left)); background: linear-gradient(rgba(0, 0, 0, .6), transparent); pointer-events: none; }
   .bar > * { pointer-events: auto; }
   .caption { flex: 1; min-width: 0; font-size: 14px; }
@@ -470,7 +599,7 @@ const IS_VIEWER_STYLE = `
   @keyframes is-spin { to { transform: rotate(360deg); } }
   @keyframes is-show { from { visibility: hidden; } }
   @media (hover: none) { .nav { display: none; } }
-  @media (prefers-reduced-motion: reduce) { .media img.full { transition: none; } }
+  @media (prefers-reduced-motion: reduce) { .media .full { transition: none; } }
 `;
 
 class ImmichSlideshowViewer extends HTMLElement {
@@ -481,9 +610,13 @@ class ImmichSlideshowViewer extends HTMLElement {
     this._onKey = this._onKey.bind(this);
   }
 
-  // `full(item)` and `thumb(item)` return image URLs; `describe(item)` the date and place.
-  open({ items, index, lang, full, thumb, describe, onClose }) {
-    Object.assign(this, { _items: items, _lang: lang, _full: full, _thumb: thumb, _describe: describe, _onClose: onClose });
+  // `full(item)`, `thumb(item)` and `video(item)` return URLs; `describe(item)` the date and place.
+  // `forget(item, size)` is told when a photo's URL didn't load, so it isn't given out again.
+  // `report(item, reason, video, err)` is told why a video couldn't be played.
+  open({ items, index, lang, full, thumb, video, forget, report, describe, onClose }) {
+    Object.assign(this, { _items: items, _lang: lang, _full: full, _thumb: thumb, _video: video, _forget: forget, _report: report, _describe: describe, _onClose: onClose });
+    // Videos start without sound, as browsers only allow sound after a tap.
+    this._muted = true;
     this._build();
     document.body.appendChild(this);
     this._show(index);
@@ -493,6 +626,7 @@ class ImmichSlideshowViewer extends HTMLElement {
   close() {
     if (!this.isConnected) return;
     this._token = null;
+    this._clear();
     this.remove();
     this._onClose?.(this._index);
   }
@@ -520,9 +654,11 @@ class ImmichSlideshowViewer extends HTMLElement {
     this._position = isEl('div', 'position');
     this._about = isEl('div', 'about');
     caption.append(this._position, this._about);
+    this._soundButton = isIconButton('sound_off', t('unmute'));
+    this._soundButton.addEventListener('click', () => this._setMuted(!this._muted));
     this._closeButton = isIconButton('close', t('close'));
     this._closeButton.addEventListener('click', () => this.close());
-    bar.append(caption, this._closeButton);
+    bar.append(caption, this._soundButton, this._closeButton);
 
     this._previous = isIconButton('previous', t('previous'), 'icon-button nav previous');
     this._next = isIconButton('next', t('next'), 'icon-button nav next');
@@ -568,12 +704,34 @@ class ImmichSlideshowViewer extends HTMLElement {
     this._about.textContent = this._describe(item);
     this._previous.hidden = index === 0;
     this._next.hidden = index === this._items.length - 1;
+    this._soundButton.hidden = !item.video;
+    this._setMuted(this._muted);
     this._status.replaceChildren();
     this._scrim.style.opacity = '';
-    this._media.replaceChildren();
+    this._clear();
     this._apply();
-    this._showPhoto(item, token);
+    this._showItem(item, token);
     this._preload(index);
+  }
+
+  // Takes down what's showing, and stops a video from playing or loading any further.
+  _clear() {
+    for (const video of this._media.querySelectorAll('video')) {
+      video.pause();
+      video.removeAttribute('src');
+      video.load();
+    }
+    this._media.replaceChildren();
+  }
+
+  _setMuted(muted) {
+    this._muted = muted;
+    const video = this._media.querySelector('video');
+    if (video) video.muted = muted;
+    const label = isT(this._lang, muted ? 'unmute' : 'mute');
+    this._soundButton.title = label;
+    this._soundButton.setAttribute('aria-label', label);
+    this._soundButton.replaceChildren(isIcon(muted ? 'sound_off' : 'sound_on'));
   }
 
   _showStatus(key) {
@@ -581,43 +739,67 @@ class ImmichSlideshowViewer extends HTMLElement {
     this._status.replaceChildren(text);
   }
 
-  _showPhoto(item, token) {
+  // A photo, or a video that plays once, over a small copy that shows while it loads.
+  _showItem(item, token) {
     const placeholder = isEl('img');
-    const full = isEl('img', 'full');
+    const full = isEl(item.video ? 'video' : 'img', 'full');
     const spinner = isEl('div', 'spinner');
     placeholder.alt = '';
     placeholder.draggable = false;
-    full.alt = this._describe(item);
-    full.draggable = false;
-    placeholder.addEventListener('error', () => { placeholder.hidden = true; });
+    if (item.video) {
+      full.muted = this._muted;
+      full.playsInline = true;
+      full.setAttribute('aria-label', this._describe(item));
+    } else {
+      full.alt = this._describe(item);
+      full.draggable = false;
+    }
+    placeholder.addEventListener('error', () => {
+      placeholder.hidden = true;
+      this._forget(item, 'thumbnail');
+    });
     this._media.append(placeholder, full, spinner);
 
     this._thumb(item).then((url) => {
       if (url && this._token === token) placeholder.src = url;
     }).catch(() => {});
 
-    const failed = () => {
+    const failed = (reason, err) => {
+      this._forget(item, item.video ? 'video' : 'fullsize');
       if (this._token !== token) return;
+      if (item.video) this._report?.(item, reason, full, err);
       spinner.remove();
-      this._showStatus('photo_failed');
+      this._showStatus(item.video ? 'video_failed' : 'photo_failed');
     };
-    full.addEventListener('load', () => {
+    full.addEventListener(item.video ? 'loadeddata' : 'load', () => {
       full.classList.add('ready');
       spinner.remove();
       setTimeout(() => { placeholder.hidden = true; }, 200);
     });
-    full.addEventListener('error', failed);
-    this._full(item).then((url) => {
-      if (this._token === token) full.src = url;
-    }).catch(failed);
+    full.addEventListener('error', () => failed(IS_VIDEO_ERRORS[full.error?.code] || 'unknown'));
+    (item.video ? this._video : this._full)(item).then((url) => {
+      if (this._token !== token) return;
+      full.src = url;
+      if (item.video) this._play(full, token);
+    }).catch((err) => failed('link', err));
+  }
+
+  _play(video, token) {
+    video.play().catch((err) => {
+      if (this._token !== token || video.muted || err?.name !== 'NotAllowedError') return;
+      // The browser wants a tap before it plays sound, so this one starts without.
+      this._setMuted(true);
+      video.play().catch(() => {});
+    });
   }
 
   _preload(index) {
     this._preloads = [index + 1, index - 1]
       .map((i) => this._items[i])
-      .filter(Boolean)
+      .filter((item) => item && !item.video)
       .map((item) => {
         const image = new Image();
+        image.addEventListener('error', () => this._forget(item, 'fullsize'));
         this._full(item).then((url) => { image.src = url; }).catch(() => {});
         return image;
       });
@@ -636,7 +818,7 @@ class ImmichSlideshowViewer extends HTMLElement {
       this._go(1);
     } else if (e.key === 'Tab') {
       e.preventDefault();
-      const stops = [this._closeButton, this._previous, this._next].filter((el) => !el.hidden);
+      const stops = [this._soundButton, this._closeButton, this._previous, this._next].filter((el) => !el.hidden);
       const current = stops.indexOf(this.shadowRoot.activeElement);
       const step = e.shiftKey ? -1 : 1;
       stops[(current + step + stops.length) % stops.length].focus();
@@ -916,6 +1098,9 @@ class ImmichSlideshowCard extends HTMLElement {
   _request() {
     const request = this._kind.request(this._config, this._lang);
     if (request && this._config.server) request.server = this._config.server;
+    if (request && this._config.videos === true) request.videos = true;
+    // Who is in each photo is only asked for when the card shows it.
+    if (request && isTags(this._config).includes('people')) request.people = true;
     return request;
   }
 
@@ -960,7 +1145,7 @@ class ImmichSlideshowCard extends HTMLElement {
     this._renderMessage();
   }
 
-  // The date and place of the photo on screen. With `fade`, they fade in with the photo.
+  // The description of the photo on screen. With `fade`, it fades in with the photo.
   _renderMeta(fade) {
     const text = this._current ? this._describe(this._current) : '';
     if (fade) {
@@ -975,11 +1160,28 @@ class ImmichSlideshowCard extends HTMLElement {
     this._caption.hidden = this._titleEl.hidden && this._metaEl.hidden;
   }
 
+  // The viewer always shows the date and place.
   _describe(item, always = false) {
-    const parts = [];
-    if (always || this._config.show_date !== false) parts.push(this._date(item));
-    if (always || this._config.show_place !== false) parts.push(isPlace(item));
-    return parts.filter(Boolean).join(' · ');
+    const tags = always ? IS_DEFAULT_TAGS : isTags(this._config);
+    return tags.map((tag) => this._part(tag, item)).filter(Boolean).join(' · ');
+  }
+
+  _part(tag, item) {
+    if (tag === 'date') return this._date(item);
+    if (tag === 'year') return isTaken(item)?.getUTCFullYear().toString();
+    if (tag === 'place') return isPlace(item);
+    if (tag === 'people') return this._people(item);
+    return item[tag];
+  }
+
+  // "Ana, Rui and Maria".
+  _people(item) {
+    const names = Array.isArray(item.people) ? item.people.filter(Boolean) : [];
+    try {
+      return new Intl.ListFormat(this._locale || 'en', { style: 'long', type: 'conjunction' }).format(names);
+    } catch (_err) {
+      return names.join(', ');
+    }
   }
 
   _date(item) {
@@ -999,7 +1201,7 @@ class ImmichSlideshowCard extends HTMLElement {
   // People who ask for reduced motion start and stop the slideshow themselves.
   _renderPlayButton() {
     if (!this._playButton || !this._lang) return;
-    const show = Boolean(this._motion?.matches && this._current && this._items.length > 1);
+    const show = Boolean(this._motion?.matches && this._current && (this._items.length > 1 || this._current.video));
     this._playButton.hidden = !show;
     if (!show) return;
     const label = this._t(this._playing ? 'pause' : 'play');
@@ -1054,6 +1256,7 @@ class ImmichSlideshowCard extends HTMLElement {
     this._order = null;
     this._position = 0;
     this._current = null;
+    this._slide = null;
     this._shownAt = 0;
     this._nextSlide = null;
     this._playing = false;
@@ -1114,9 +1317,14 @@ class ImmichSlideshowCard extends HTMLElement {
       }
       this._loaded = false;
       const missing = ['unknown_command', 'not_configured'].includes(err?.code);
+      // Home Assistant only lets admins read photos from Immich.
+      const refused = err?.code === 'unauthorized';
+      let key = 'load_failed';
+      if (missing) key = 'no_integration';
+      else if (refused) key = 'admin_only';
       this._setMessage({
-        key: missing ? 'no_integration' : 'load_failed',
-        detail: missing ? undefined : err?.message,
+        key,
+        detail: missing || refused ? undefined : err?.message,
         retry: () => this._maybeLoad(),
       });
       this._retryTimer = setTimeout(() => this._maybeLoad(), IS_RETRY_MS);
@@ -1129,7 +1337,9 @@ class ImmichSlideshowCard extends HTMLElement {
     this._items = [];
     this._order = null;
     this._current = null;
+    this._slide = null;
     this._nextSlide = null;
+    for (const old of this._stage.children) this._releaseClip(old);
     this._stage.replaceChildren();
     this._renderMeta(false);
     this._renderPlayButton();
@@ -1174,10 +1384,16 @@ class ImmichSlideshowCard extends HTMLElement {
     });
   }
 
+  // Whether the slideshow stays on what it shows: with reduced motion until it's
+  // asked to play, and on an only photo. An only video plays again and again.
+  _rests() {
+    return this._still() || (this._items.length <= 1 && !this._current.video);
+  }
+
   async _loop(run) {
     if (this._current) {
-      if (this._items.length <= 1 || this._still()) return;
-      await this._wait(Math.max(0, this._interval() - (Date.now() - this._shownAt)));
+      if (this._rests()) return;
+      await this._hold(run);
     }
     while (run === this._run) {
       this._nextSlide = this._nextSlide || this._prepare();
@@ -1186,16 +1402,101 @@ class ImmichSlideshowCard extends HTMLElement {
       this._nextSlide = null;
       if (slide) {
         this._show(slide);
-        if (this._items.length <= 1 || this._still()) return;
+        if (this._rests()) return;
         this._nextSlide = this._prepare();
-      } else if (!this._current) {
-        this._setMessage({ key: 'photos_failed' });
+        await this._hold(run);
+      } else {
+        if (!this._current) this._setMessage({ key: 'photos_failed' });
+        await this._wait(this._interval());
       }
-      await this._wait(this._interval());
     }
   }
 
-  // Finds the next photo that loads, skipping a few that don't.
+  // Gives what's on screen its time: the interval, or longer for a video that runs longer.
+  async _hold(run) {
+    if (this._current.video) await this._playClip(this._slide, run);
+    if (run !== this._run) return;
+    await this._wait(Math.max(0, this._interval() - (Date.now() - this._shownAt)));
+  }
+
+  // Plays a slide's video once, over its still. Resolves when the video ends or can't
+  // go on, which leaves the still, or when the slideshow stops, which pauses the video.
+  async _playClip(slide, run) {
+    if (slide._over) return;
+    slide._clip = slide._clip || this._loadClip(slide);
+    const clip = await slide._clip;
+    if (!clip || slide._over || run !== this._run) return;
+    const item = slide._item;
+    await new Promise((resolve) => {
+      let settled = false;
+      let stalled;
+      // `failed` is why the video can't go on, and `err` what the browser said about it.
+      const done = (over, failed, err) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(stalled);
+        for (const [type, handler] of Object.entries(handlers)) clip.removeEventListener(type, handler);
+        clip.pause();
+        slide._over = over;
+        if (failed) {
+          this._reportVideo(item, failed, clip, err, 'slideshow');
+          clip.classList.remove('on');
+          this._forgetLink(item, 'video');
+        }
+        resolve();
+      };
+      const watch = () => {
+        clearTimeout(stalled);
+        stalled = setTimeout(() => done(true, 'stalled'), IS_STALL_MS);
+      };
+      const handlers = {
+        playing: () => clip.classList.add('on'),
+        timeupdate: watch,
+        ended: () => done(true),
+        error: () => done(true, IS_VIDEO_ERRORS[clip.error?.code] || 'unknown'),
+      };
+      for (const [type, handler] of Object.entries(handlers)) clip.addEventListener(type, handler);
+      // A stopped slideshow carries on from here when it starts again.
+      this._waitDone = () => done(false);
+      watch();
+      // Browsers that won't start a video on their own leave the still.
+      clip.play().catch((err) => done(true, isPlayFailure(err), err));
+    });
+  }
+
+  // The video starts loading when its slide is on screen, not ahead like its still.
+  async _loadClip(slide) {
+    const clip = isEl('video', 'clip');
+    clip.muted = true;
+    clip.playsInline = true;
+    try {
+      clip.src = await this._videoLink(slide._item);
+    } catch (err) {
+      this._reportVideo(slide._item, 'link', null, err, 'slideshow');
+      return null;
+    }
+    // The slide was taken down while the link was on its way.
+    if (!slide._clip) return null;
+    slide.appendChild(clip);
+    return clip;
+  }
+
+  // Stops a slide's video from loading any further, once the slide is done with.
+  // A video that is only paused keeps its connection open for a while.
+  _releaseClip(slide) {
+    const loading = slide._clip;
+    if (!loading) return;
+    slide._clip = null;
+    slide._over = true;
+    loading.then((clip) => {
+      if (!clip) return;
+      clip.pause();
+      clip.removeAttribute('src');
+      clip.load();
+    });
+  }
+
+  // Finds the next photo that loads, skipping a few that don't. A video loads as its still.
   async _prepare() {
     const attempts = Math.min(this._items.length, IS_MAX_SKIPS);
     for (let i = 0; i < attempts; i += 1) {
@@ -1238,14 +1539,53 @@ class ImmichSlideshowCard extends HTMLElement {
   // The tile uses Immich's preview size, which is far smaller than the full image.
   async _loadPhoto(item) {
     try {
-      return await isLoadImage(await this._sign(this._path(item, 'preview')));
+      return await this._loadImage(item, 'preview');
     } catch (_err) {
-      return isLoadImage(await this._sign(this._path(item, 'fullsize')));
+      return this._loadImage(item, 'fullsize');
     }
   }
 
-  async _sign(path) {
-    const signed = await this._hass.callWS({ type: 'auth/sign_path', path, expires: IS_SIGN_SECONDS });
+  async _loadImage(item, size) {
+    try {
+      return await isLoadImage(await this._link(item, size));
+    } catch (err) {
+      this._forgetLink(item, size);
+      throw err;
+    }
+  }
+
+  // A photo's link is used again while it lasts, so the browser shows the copy it has:
+  // the one the viewer loaded ahead, or a photo that comes round again.
+  _link(item, size) {
+    return isLink(this._path(item, size), (path) => this._sign(path));
+  }
+
+  // A video's link lasts as long as the video and five minutes more, so it too can be
+  // used again: an only video, which plays again and again, is then loaded once.
+  _videoLink(item) {
+    return isLink(this._path(item, 'video'), (path) => this._sign(path, isVideoSeconds(item)));
+  }
+
+  // Tells Home Assistant why a video couldn't be played, for its log. The card keeps
+  // the still and moves on, and a wall display has no console to read the reason in.
+  _reportVideo(item, reason, video, err, place) {
+    this._hass?.callWS({
+      type: `${IS_DOMAIN}/video_failed`,
+      asset: item.id,
+      reason,
+      place,
+      detail: isVideoDetail(video, err),
+      browser: navigator.userAgent.slice(0, 300),
+    }).catch(() => {});
+  }
+
+  // A link that didn't load isn't used again.
+  _forgetLink(item, size) {
+    isLinks.delete(this._path(item, size));
+  }
+
+  async _sign(path, seconds = IS_SIGN_SECONDS) {
+    const signed = await this._hass.callWS({ type: 'auth/sign_path', path, expires: seconds });
     return isUrl(this._hass, signed.path);
   }
 
@@ -1289,7 +1629,7 @@ class ImmichSlideshowCard extends HTMLElement {
   // The backdrop is blurred, so the small thumbnail is enough.
   async _loadBackdrop(slide) {
     try {
-      const backdrop = await isLoadImage(await this._sign(this._path(slide._item, 'thumbnail')));
+      const backdrop = await this._loadImage(slide._item, 'thumbnail');
       backdrop.className = 'backdrop';
       slide.prepend(backdrop);
     } catch (_err) {
@@ -1303,13 +1643,16 @@ class ImmichSlideshowCard extends HTMLElement {
     void slide.offsetWidth;
     slide.classList.add('on');
     this._current = item;
+    this._slide = slide;
     this._shownAt = Date.now();
     this._renderMeta(true);
     this._renderPlayButton();
     if (this._message) this._setMessage(null);
     setTimeout(() => {
       for (const old of [...this._stage.children]) {
-        if (old !== this._stage.lastElementChild) old.remove();
+        if (old === this._stage.lastElementChild) continue;
+        this._releaseClip(old);
+        old.remove();
       }
     }, IS_FADE_MS + 100);
   }
@@ -1326,8 +1669,11 @@ class ImmichSlideshowCard extends HTMLElement {
       items,
       index: items.indexOf(current),
       lang: this._lang,
-      full: (item) => this._sign(this._path(item, 'fullsize')),
-      thumb: (item) => this._sign(this._path(item, 'thumbnail')),
+      full: (item) => this._link(item, 'fullsize'),
+      thumb: (item) => this._link(item, 'thumbnail'),
+      video: (item) => this._videoLink(item),
+      forget: (item, size) => this._forgetLink(item, size),
+      report: (item, reason, video, err) => this._reportVideo(item, reason, video, err, 'viewer'),
       describe: (item) => this._describe(item, true),
       onClose: () => {
         this._viewer = null;
@@ -1364,7 +1710,7 @@ async function isLoadForm() {
   return Boolean(customElements.get('ha-form'));
 }
 
-const IS_EDITOR_KEYS = ['server', 'source', 'album', 'query', 'count', 'interval', 'shuffle', 'fit', 'show_date', 'show_place', 'title'];
+const IS_EDITOR_KEYS = ['server', 'source', 'album', 'query', 'count', 'interval', 'shuffle', 'videos', 'fit', 'title'];
 
 class ImmichSlideshowCardEditor extends HTMLElement {
   static get kind() {
@@ -1399,9 +1745,8 @@ class ImmichSlideshowCardEditor extends HTMLElement {
       count: IS_SEARCH_COUNT,
       interval: IS_DEFAULT_INTERVAL,
       shuffle: IS_KINDS[this.constructor.kind].shuffle,
+      videos: false,
       fit: 'auto',
-      show_date: true,
-      show_place: true,
     };
   }
 
@@ -1434,6 +1779,7 @@ class ImmichSlideshowCardEditor extends HTMLElement {
   _formData() {
     const data = { ...this._defaults(), ...this._config };
     if (data.album) data.album = isAlbumId(data.album);
+    data.description = isTags(this._config);
     if (this._servers.length > 1 && !data.server) data.server = this._servers[0].id;
     return data;
   }
@@ -1442,7 +1788,7 @@ class ImmichSlideshowCardEditor extends HTMLElement {
     if (name === 'album') {
       return this._albumsLoaded && !this._albums.length ? this._t('editor_no_albums') : undefined;
     }
-    if (['source', 'query', 'count', 'interval', 'fit', 'title'].includes(name)) return this._t(`editor_${name}_hint`);
+    if (['source', 'query', 'count', 'interval', 'videos', 'fit', 'description', 'title'].includes(name)) return this._t(`editor_${name}_hint`);
     return undefined;
   }
 
@@ -1481,13 +1827,24 @@ class ImmichSlideshowCardEditor extends HTMLElement {
     });
     // Random photos are already in random order.
     if (!random) fields.push({ name: 'shuffle', selector: { boolean: {} } });
+    fields.push({ name: 'videos', selector: { boolean: {} } });
     fields.push(this._select('fit', [
       { value: 'auto', label: this._t('editor_fit_auto') },
       { value: 'cover', label: this._t('editor_fit_cover') },
       { value: 'contain', label: this._t('editor_fit_contain') },
     ]));
-    fields.push({ name: 'show_date', selector: { boolean: {} } });
-    fields.push({ name: 'show_place', selector: { boolean: {} } });
+    // Chips that can be added, removed and dragged into another order.
+    fields.push({
+      name: 'description',
+      selector: {
+        select: {
+          multiple: true,
+          reorder: true,
+          mode: 'dropdown',
+          options: IS_TAGS.map((tag) => ({ value: tag, label: this._t(`tag_${tag}`) })),
+        },
+      },
+    });
     fields.push({ name: 'title', selector: { text: {} } });
     return fields;
   }
@@ -1534,6 +1891,14 @@ class ImmichSlideshowCardEditor extends HTMLElement {
       const next = value[key];
       if (next === undefined || next === null || next === '' || next === defaults[key]) delete config[key];
       else config[key] = next;
+    }
+    // The description replaces the date and place switches of earlier versions.
+    if ('description' in value) {
+      const tags = isTags({ description: value.description || [] });
+      delete config.show_date;
+      delete config.show_place;
+      if (tags.join() === IS_DEFAULT_TAGS.join()) delete config.description;
+      else config.description = tags;
     }
     // An album saved by an earlier version is rewritten as a plain album ID.
     if (config.album) config.album = isAlbumId(config.album);

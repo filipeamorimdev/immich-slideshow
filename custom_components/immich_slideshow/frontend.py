@@ -16,6 +16,8 @@ from .const import CARD_URL, DOMAIN, FRONTEND_PATH, LEGACY_CARD_FILE, VERSION
 _LOGGER = logging.getLogger(__name__)
 FRONTEND_DIR = Path(__file__).parent / "frontend"
 REGISTERED = f"{DOMAIN}_frontend"
+RESOURCE_ADDED = f"{DOMAIN}_resource"
+VERSIONED_URL = f"{CARD_URL}?v={VERSION}"
 
 
 def resource_path(url: str) -> str:
@@ -30,20 +32,41 @@ def is_legacy_resource(url: str) -> bool:
 
 async def async_register_frontend(hass: HomeAssistant) -> None:
     """Serve the card file and make sure dashboards load it."""
-    if hass.data.get(REGISTERED):
+    if not hass.data.get(REGISTERED):
+        hass.data[REGISTERED] = True
+        await hass.http.async_register_static_paths(
+            [StaticPathConfig(FRONTEND_PATH, str(FRONTEND_DIR), False)]
+        )
+    await async_add_resource(hass)
+
+
+async def async_add_resource(hass: HomeAssistant) -> None:
+    """Make sure dashboards load the cards. It's taken away with the last server."""
+    if hass.data.get(RESOURCE_ADDED):
         return
-    hass.data[REGISTERED] = True
-    await hass.http.async_register_static_paths(
-        [StaticPathConfig(FRONTEND_PATH, str(FRONTEND_DIR), False)]
-    )
-    versioned = f"{CARD_URL}?v={VERSION}"
+    hass.data[RESOURCE_ADDED] = True
     # Dashboards load their resources once the frontend is ready. An extra JS URL
     # can run before that, and from Home Assistant 2026.10 the frontend then swaps
     # in its own element registry, which no longer knows the cards. So the extra
     # URL is only a fallback for dashboards whose resources are kept in YAML.
-    if not await _async_update_resources(hass, versioned):
-        frontend.add_extra_js_url(hass, versioned)
-        _LOGGER.info("Add %s to your dashboard resources as a JavaScript module", versioned)
+    if not await _async_update_resources(hass, VERSIONED_URL):
+        frontend.add_extra_js_url(hass, VERSIONED_URL)
+        _LOGGER.info("Add %s to your dashboard resources as a JavaScript module", VERSIONED_URL)
+
+
+async def async_remove_resource(hass: HomeAssistant) -> None:
+    """Stop dashboards loading the cards, which would fail once the files are gone."""
+    hass.data[RESOURCE_ADDED] = False
+    frontend.remove_extra_js_url(hass, VERSIONED_URL)
+    resources = await _async_resources(hass)
+    if resources is None:
+        return
+    try:
+        for item in list(resources.async_items()):
+            if resource_path(item.get("url", "")) == CARD_URL:
+                await resources.async_delete_item(item["id"])
+    except Exception:  # noqa: BLE001 - a resource left behind does no harm.
+        _LOGGER.debug("Couldn't remove the dashboard resource", exc_info=True)
 
 
 async def _async_resources(hass: HomeAssistant) -> Any:

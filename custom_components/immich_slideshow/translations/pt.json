@@ -45,6 +45,7 @@
       "invalid_auth": "O Immich recusou esta chave de API.",
       "missing_permissions": "Faltam estas permissões à chave de API: {missing}.",
       "invalid_url": "Introduza um endereço que comece por http:// ou https://.",
+      "redirected": "Este endereço redireciona para outro. Introduza o endereço em que o próprio Immich responde, por exemplo com https:// em vez de http://.",
       "unknown": "O Immich deu uma resposta inesperada."
     },
     "abort": {

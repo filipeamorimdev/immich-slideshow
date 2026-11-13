@@ -204,6 +204,77 @@ async def test_reads_duplicates_and_stacks_every_6_hours(hass: HomeAssistant, im
     assert value(hass, loaded_entry, "duplicates") == "0"
 
 
+# Midday, so the six hours don't run into the refresh at midnight.
+@pytest.mark.freeze_time("2026-11-08T20:00:00+00:00")
+async def test_reads_only_what_the_enabled_entities_show(hass: HomeAssistant, immich: FakeImmich, loaded_entry: MockConfigEntry, freezer: FrozenDateTimeFactory) -> None:
+    # The first read was of everything, to find out what the key can read.
+    assert len(immich.bodies("/search/statistics")) == 10
+    immich.requests.clear()
+    freezer.tick(timedelta(hours=6))
+    await refresh(hass, loaded_entry)
+    paths = {path for _, path, _, _ in immich.requests}
+    # Stacks and shared links start turned off. Duplicates and users are on.
+    assert "/stacks" not in paths
+    assert "/shared-links" not in paths
+    assert {"/duplicates", "/users", "/server/about"} <= paths
+    # Of the ten counts, three are on: with a place, with people and added recently.
+    rules = [body["filter"] for body in immich.bodies("/search/statistics")]
+    assert len(rules) == 3
+    assert {"country": {"ne": None}} in [{k: v for k, v in rule.items() if k == "country"} for rule in rules]
+    # Lenses start turned off.
+    kinds = [query["type"][0] for _, path, query, _ in immich.requests if path == "/search/suggestions"]
+    assert sorted(kinds) == ["camera-make", "camera-model", "city", "country"]
+    # What is still read keeps its value.
+    assert value(hass, loaded_entry, "located") == "17367"
+    assert value(hass, loaded_entry, "cities") == "4"
+    assert hass.states.get(entity_id(hass, loaded_entry, "countries")).attributes["countries"] == ["France", "Portugal", "Spain"]
+
+
+async def test_a_slow_statistic_doesnt_stop_the_rest(hass: HomeAssistant, immich: FakeImmich, config_entry: MockConfigEntry, freezer: FrozenDateTimeFactory) -> None:
+    def reads() -> int:
+        return len([p for _, p, _, _ in immich.requests if p == "/duplicates"])
+
+    # A whole list that takes longer than the time limit, as on a large library.
+    immich.errors["/duplicates"] = TimeoutError()
+    await setup(hass, config_entry)
+    assert config_entry.state is ConfigEntryState.LOADED
+    assert value(hass, config_entry, "photos") == "22363"
+    assert value(hass, config_entry, "duplicates") == STATE_UNAVAILABLE
+    # It waits six hours before asking again, like a list that was read.
+    await refresh(hass, config_entry)
+    assert reads() == 1
+    assert value(hass, config_entry, "photos") == "22363"
+    del immich.errors["/duplicates"]
+    freezer.tick(timedelta(hours=6))
+    await refresh(hass, config_entry)
+    assert reads() == 2
+    assert value(hass, config_entry, "duplicates") == "2"
+
+
+async def test_a_slow_first_answer_means_immich_is_down(hass: HomeAssistant, immich: FakeImmich, config_entry: MockConfigEntry) -> None:
+    immich.errors["/server/about"] = TimeoutError()
+    await setup(hass, config_entry)
+    assert config_entry.state is ConfigEntryState.SETUP_RETRY
+    # It stopped at the first answer, rather than waiting for each one in turn.
+    assert "/server/storage" not in [path for _, path, _, _ in immich.requests]
+
+
+async def test_many_slow_answers_mean_immich_is_down(hass: HomeAssistant, immich: FakeImmich, loaded_entry: MockConfigEntry, freezer: FrozenDateTimeFactory) -> None:
+    for path in ("/people", "/tags", "/users"):
+        immich.errors[path] = TimeoutError()
+    immich.requests.clear()
+    await refresh(hass, loaded_entry)
+    assert value(hass, loaded_entry, "photos") == STATE_UNAVAILABLE
+    # Two slow answers are put up with. The third ends the update.
+    paths = [path for _, path, _, _ in immich.requests]
+    assert "/users" in paths
+    assert "/search/suggestions" not in paths
+    immich.errors.clear()
+    await refresh(hass, loaded_entry)
+    assert value(hass, loaded_entry, "photos") == "22363"
+    assert value(hass, loaded_entry, "people") == "242"
+
+
 @pytest.mark.freeze_time("2026-11-08T12:00:00+00:00")
 async def test_on_this_day_count(hass: HomeAssistant, immich: FakeImmich, config_entry: MockConfigEntry, freezer: FrozenDateTimeFactory) -> None:
     trashed = {**make_asset(3, "2020-11-08T10:00:00.000Z"), "isTrashed": True}

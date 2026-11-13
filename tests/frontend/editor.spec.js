@@ -8,6 +8,10 @@ const select = (page, name) => field(page, name).locator('select');
 const input = (page, name) => field(page, name).locator('input');
 const fields = (page) => page.locator('#editor label').evaluateAll((labels) => labels.map((l) => l.dataset.name));
 const lastConfig = (page) => page.evaluate(() => window.__lastConfig);
+// The description's chips, in order, and the ways to change them.
+const tags = (page) => field(page, 'description').locator('.chip').evaluateAll((chips) => chips.map((c) => c.dataset.value));
+const removeTag = (page, tag) => field(page, 'description').locator(`.chip[data-value="${tag}"]`).click();
+const addTag = (page, tag) => select(page, 'description').selectOption(tag);
 const albumsListed = (page) => expect(select(page, 'album').locator('option', { hasText: 'Lisbon 2024' })).toHaveCount(1);
 
 test.describe('slideshow editor', () => {
@@ -15,7 +19,7 @@ test.describe('slideshow editor', () => {
     await open(page, 'editor=1');
     await albumsListed(page);
     expect(await page.evaluate(() => window.__formLoads)).toBe(1);
-    expect(await fields(page)).toEqual(['source', 'album', 'interval', 'shuffle', 'fit', 'show_date', 'show_place', 'title']);
+    expect(await fields(page)).toEqual(['source', 'album', 'interval', 'shuffle', 'videos', 'fit', 'description', 'title']);
   });
 
   test('shows the defaults without writing them to the config', async ({ page }) => {
@@ -25,8 +29,7 @@ test.describe('slideshow editor', () => {
     await expect(input(page, 'interval')).toHaveValue('10');
     await expect(input(page, 'shuffle')).toBeChecked();
     await expect(select(page, 'fit')).toHaveValue('auto');
-    await expect(input(page, 'show_date')).toBeChecked();
-    await expect(input(page, 'show_place')).toBeChecked();
+    expect(await tags(page)).toEqual(['date', 'place']);
     await select(page, 'album').selectOption('lisbon');
     expect(await lastConfig(page)).toEqual({ album: 'lisbon' });
   });
@@ -47,11 +50,11 @@ test.describe('slideshow editor', () => {
     await input(page, 'interval').blur();
     await input(page, 'shuffle').uncheck();
     await select(page, 'fit').selectOption('contain');
-    await input(page, 'show_date').uncheck();
-    await input(page, 'show_place').uncheck();
+    await removeTag(page, 'date');
+    await removeTag(page, 'place');
     await input(page, 'title').fill('Summer');
     expect(await lastConfig(page)).toEqual({
-      album: 'lisbon', interval: 30, shuffle: false, fit: 'contain', show_date: false, show_place: false, title: 'Summer',
+      album: 'lisbon', interval: 30, shuffle: false, fit: 'contain', description: [], title: 'Summer',
     });
     await expect(page.locator(`${CARD} .title`)).toHaveText('Summer');
 
@@ -59,17 +62,63 @@ test.describe('slideshow editor', () => {
     await input(page, 'interval').blur();
     await input(page, 'shuffle').check();
     await select(page, 'fit').selectOption('auto');
-    await input(page, 'show_date').check();
-    await input(page, 'show_place').check();
+    await addTag(page, 'date');
+    await addTag(page, 'place');
     await input(page, 'title').fill('');
     expect(await lastConfig(page)).toEqual({ album: 'lisbon' });
   });
 
-  test('turning off the date takes it off the tile', async ({ page }) => {
+  test('videos are off until asked for, and the album loads again with them', async ({ page }) => {
+    await open(page, 'album=clips&editor=1');
+    await albumsListed(page);
+    await expect(input(page, 'videos')).not.toBeChecked();
+    await expect(field(page, 'videos')).toContainText('Videos play to the end, without sound.');
+    await input(page, 'videos').check();
+    expect(await lastConfig(page)).toEqual({ album: 'clips', videos: true });
+    await expect.poll(async () => (await calls(page)).requests.at(-1)).toMatchObject({ album: 'clips', videos: true });
+    await input(page, 'videos').uncheck();
+    expect(await lastConfig(page)).toEqual({ album: 'clips' });
+    await expect.poll(async () => (await calls(page)).requests.at(-1)).toEqual({ type: 'immich_slideshow/photos', source: 'album', album: 'clips' });
+  });
+
+  test('removing the date takes it off the tile', async ({ page }) => {
     await open(page, 'album=lisbon&shuffle=0&editor=1');
     await expect(page.locator(`${CARD} .meta`)).toHaveText('January 10, 2024 · Lisbon, Portugal');
-    await input(page, 'show_date').uncheck();
+    await removeTag(page, 'date');
     await expect(page.locator(`${CARD} .meta`)).toHaveText('Lisbon, Portugal');
+    expect(await lastConfig(page)).toEqual({ album: 'lisbon', shuffle: false, description: ['place'] });
+  });
+
+  test('the description is built from tags, in the order they are put', async ({ page }) => {
+    await open(page, 'album=lisbon&shuffle=0&editor=1');
+    await expect(select(page, 'description').locator('option')).toHaveText(['', 'Year', 'Country', 'City', 'People']);
+    await expect(field(page, 'description')).toContainText('What to show under each photo');
+    await removeTag(page, 'date');
+    await removeTag(page, 'place');
+    await addTag(page, 'city');
+    await addTag(page, 'year');
+    expect(await lastConfig(page)).toEqual({ album: 'lisbon', shuffle: false, description: ['city', 'year'] });
+    await expect(page.locator(`${CARD} .meta`)).toHaveText('Lisbon · 2024');
+    // Dragging a chip gives the same tags in another order.
+    await field(page, 'description').locator('.chip[data-value="year"]').click({ modifiers: ['Shift'] });
+    expect(await tags(page)).toEqual(['year', 'city']);
+    await expect(page.locator(`${CARD} .meta`)).toHaveText('2024 · Lisbon');
+  });
+
+  test('adding people asks Immich who is in the photos', async ({ page }) => {
+    await open(page, 'album=lisbon&shuffle=0&editor=1');
+    await expectShown(page, 'lisbon-0 preview');
+    expect((await calls(page)).requests.at(-1).people).toBeUndefined();
+    await addTag(page, 'people');
+    await expect.poll(async () => (await calls(page)).requests.at(-1)).toMatchObject({ album: 'lisbon', people: true });
+    await expect(page.locator(`${CARD} .meta`)).toHaveText('January 10, 2024 · Lisbon, Portugal · Ana');
+  });
+
+  test('the date and place switches of earlier versions become a description', async ({ page }) => {
+    await open(page, 'album=lisbon&shuffle=0&show_date=0&editor=1');
+    expect(await tags(page)).toEqual(['place']);
+    await input(page, 'title').fill('Summer');
+    expect(await lastConfig(page)).toEqual({ album: 'lisbon', shuffle: false, description: ['place'], title: 'Summer' });
   });
 
   test('typing is not lost when the album list arrives', async ({ page }) => {
@@ -96,7 +145,7 @@ test.describe('slideshow editor', () => {
     await albumsListed(page);
     const before = (await calls(page)).photos;
     await input(page, 'title').fill('Summer');
-    await input(page, 'show_place').uncheck();
+    await removeTag(page, 'place');
     // Longer than the harness takes to answer, so a reload would be counted.
     await page.waitForTimeout(200);
     expect((await calls(page)).photos).toBe(before);
@@ -108,7 +157,7 @@ test.describe('slideshow editor', () => {
     await albumsListed(page);
     await select(page, 'source').selectOption('random');
     expect(await lastConfig(page)).toEqual({ album: 'lisbon', source: 'random' });
-    await expect.poll(() => fields(page)).toEqual(['source', 'interval', 'fit', 'show_date', 'show_place', 'title']);
+    await expect.poll(() => fields(page)).toEqual(['source', 'interval', 'videos', 'fit', 'description', 'title']);
     await expect(field(page, 'source')).toContainText('leaves out hidden, locked, archived and deleted photos');
     await expect.poll(() => shown(page)).toMatch(/^random\d-\d preview$/);
     await select(page, 'source').selectOption('album');
@@ -162,7 +211,7 @@ test.describe('slideshow editor', () => {
 test.describe('magic editor', () => {
   test('asks what to show and how many', async ({ page }) => {
     await open(page, 'card=magic&editor=1');
-    await expect.poll(() => fields(page)).toEqual(['query', 'count', 'interval', 'shuffle', 'fit', 'show_date', 'show_place', 'title']);
+    await expect.poll(() => fields(page)).toEqual(['query', 'count', 'interval', 'shuffle', 'videos', 'fit', 'description', 'title']);
     await expect(input(page, 'count')).toHaveValue('50');
     await expect(field(page, 'query')).toContainText('beach sunset');
   });
@@ -188,7 +237,7 @@ test.describe('magic editor', () => {
 test.describe('on this day editor', () => {
   test('needs no setup and plays in date order by default', async ({ page }) => {
     await open(page, 'card=on_this_day&editor=1');
-    await expect.poll(() => fields(page)).toEqual(['interval', 'shuffle', 'fit', 'show_date', 'show_place', 'title']);
+    await expect.poll(() => fields(page)).toEqual(['interval', 'shuffle', 'videos', 'fit', 'description', 'title']);
     await expect(input(page, 'shuffle')).not.toBeChecked();
     await input(page, 'shuffle').check();
     expect(await lastConfig(page)).toEqual({ shuffle: true });

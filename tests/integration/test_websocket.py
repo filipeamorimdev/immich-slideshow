@@ -209,7 +209,8 @@ async def test_people_for_every_source(hass: HomeAssistant, ws, immich: FakeImmi
     immich.random = [make_asset(1, people=["Ana"])]
     reply = await ws(type=f"{DOMAIN}/photos", source="random", people=True)
     assert reply["result"]["photos"][0]["people"] == ["Ana"]
-    assert immich.bodies("/search/random")[0]["withPeople"] is True
+    # The random photo entity asks too, for one photo, and may have asked first.
+    assert immich.bodies("/search/random")[-1]["withPeople"] is True
 
     # A smart search can't say who is in a photo, so the photos are read again, in the same order.
     immich.smart = [make_asset(3, people=["Rui"]), make_asset(2, people=["Ana"]), make_asset(4)]
